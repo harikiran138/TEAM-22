@@ -1,32 +1,37 @@
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
 const config: Config = {
-    darkMode: ["class"],
     content: [
-        './src/**/*.{ts,tsx}',
+        "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+        "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+        "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     ],
+    darkMode: 'class',
     theme: {
-        container: {
-            center: true,
-            padding: "2rem",
-            screens: {
-                "2xl": "1400px",
+        extend: {
+            colors: {
+                lumina: {
+                    primary: '#FFD700', // Gold
+                    secondary: '#FDB931', // Darker Gold
+                    dark: '#000000', // Black
+                    light: '#FFFFFF', // White
+                    gray: '#1F2937', // Dark Gray
+                },
+            },
+            fontFamily: {
+                sans: ['Inter', 'sans-serif'],
             },
         },
-        extend: {
-            fontFamily: {
-                sans: ["var(--font-inter)", "sans-serif"],
-                heading: ["var(--font-jakarta)", "sans-serif"],
-            },
-            colors: {
-                border: "hsl(var(--border))",
-                input: "hsl(var(--input))",
-                ring: "hsl(var(--ring))",
-                background: "hsl(var(--background))",
-                foreground: "hsl(var(--foreground))",
+        animation: {
+            'pulse-slow': 'pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        },
+        keyframes: {
+            'pulse-slow': {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0.5' },
             },
         },
     },
     plugins: [],
-}
-export default config
+};
+export default config;
