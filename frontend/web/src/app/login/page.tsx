@@ -176,6 +176,31 @@ export default function LoginPage() {
 
                 </div>
 
+                {/* Demo Login Buttons */}
+                <div className="flex justify-center space-x-2 mt-4">
+                    <button
+                        type="button"
+                        onClick={() => quickLogin('student')}
+                        className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-3 rounded border border-gray-600 transition-colors"
+                    >
+                        Demo Student
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => quickLogin('teacher')}
+                        className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-3 rounded border border-gray-600 transition-colors"
+                    >
+                        Demo Teacher
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => quickLogin('admin')}
+                        className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-3 rounded border border-gray-600 transition-colors"
+                    >
+                        Demo Admin
+                    </button>
+                </div>
+
                 {activeTab === 'signin' ? (
                     <form id="signin-form" className="mt-8 space-y-6" onSubmit={handleSignIn}>
                         <div className="space-y-5">
