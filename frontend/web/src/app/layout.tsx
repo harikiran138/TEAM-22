@@ -2,13 +2,9 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./globals.css";
-<<<<<<< HEAD
 
-import { ThemeProvider } from "@/components/theme-provider";
-import DottedSurface from "@/components/ui/DottedSurface";
-=======
 import { ThemeProvider } from "@/components/providers/theme-provider";
->>>>>>> 40f3b007f68c553469d8f4b899ed89b210563154
+import DottedSurface from "@/components/ui/DottedSurface";
 
 const inter = Inter({ subsets: ["latin"] });
 
