@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import "./globals.css";
+
 import { ThemeProvider } from "@/components/theme-provider";
 import DottedSurface from "@/components/ui/DottedSurface";
 
