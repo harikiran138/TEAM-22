@@ -158,7 +158,7 @@ export async function registerUser(userData: Partial<User> & { password: string 
         // Note: This user won't exist in the DB for future logins unless the DB recovers.
         return {
             id: 'temp-mock-id-' + Date.now(),
-            email: userData.email,
+            email: userData.email || 'temp-user@lumina.com',
             name: userData.name || 'New User',
             role: (userData.role === 'teacher' ? 'teacher' : 'student'),
             avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=random`,

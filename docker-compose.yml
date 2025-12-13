@@ -45,7 +45,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend/web
+      context: .
       dockerfile: Dockerfile
     ports:
       - "3000:3000"

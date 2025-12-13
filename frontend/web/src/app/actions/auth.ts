@@ -128,7 +128,7 @@ export async function registerUser(userData: Partial<User> & { password: string 
         const hashedPassword = await bcrypt.hash(userData.password, 10);
 
         const newUserProfile = {
-            email: userData.email,
+            email: userData.email || 'temp-user@lumina.com',
             password: hashedPassword,
             name: userData.name || 'New User',
             role: (userData.role === 'teacher' ? 'teacher' : 'student'),
