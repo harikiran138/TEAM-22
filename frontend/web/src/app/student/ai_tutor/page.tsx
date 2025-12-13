@@ -12,7 +12,9 @@ import {
     FileText,
     Plus,
     Copy,
-    Loader2
+    Loader2,
+    Cpu,
+    Globe
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -26,6 +28,7 @@ export default function AITutorPage() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // AI Engine State
+    const [useWebLLM, setUseWebLLM] = useState(true);
     const engine = useRef<any>(null);
     const [isEngineReady, setIsEngineReady] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState('');
@@ -38,7 +41,7 @@ export default function AITutorPage() {
     const [currentSessionId, setCurrentSessionId] = useState<string>('');
     const [sessions, setSessions] = useState<Record<string, any[]>>({});
 
-    // Initialize WebLLM Engine (Restored)
+    // Initialize WebLLM Engine
     useEffect(() => {
         const initEngine = async () => {
             if (engine.current) return;
@@ -65,6 +68,10 @@ export default function AITutorPage() {
             }
         };
 
+        // Always init WebLLM if useWebLLM is true, or pre-load it?
+        // User requested: "webllm shode load immedlty when user open"
+        initEngine();
+
         const loadContext = async () => {
             try {
                 const user = await api.getCurrentUser();
@@ -89,8 +96,6 @@ export default function AITutorPage() {
                 console.error("Failed to load user context", e);
             }
         };
-
-        initEngine();
         loadContext();
     }, []);
 
@@ -151,8 +156,10 @@ export default function AITutorPage() {
     const handleSendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!input.trim()) return;
-        if (!isEngineReady) {
-            alert("Lumina AI is still loading. Please wait a moment.");
+
+        // If WebLLM mode is active, block until ready. If Local, we can proceed.
+        if (useWebLLM && !isEngineReady) {
+            alert("Lumina AI (WebLLM) is still loading. Please wait or switch to Local Mode.");
             return;
         }
 
@@ -167,29 +174,44 @@ export default function AITutorPage() {
         api.saveChatMessage({ sender: 'me', text: userMsg.text, sessionId: currentSessionId });
 
         try {
-            const systemMessage = `You are Lumina, an AI Tutor for students. Be helpful, concise, and educational.\n\nContext:\n${userContext}`;
+            let aiText = "";
 
-            const contextMessages = [
-                { role: 'system', content: systemMessage },
-                ...messages.slice(-10).map(m => ({
-                    role: m.sender === 'me' ? 'user' : 'assistant',
-                    content: m.text
-                })),
-                { role: 'user', content: userMsg.text }
-            ];
+            if (useWebLLM) {
+                const systemMessage = `You are Lumina, an AI Tutor for students. Be helpful, concise, and educational.\n\nContext:\n${userContext}`;
+                const contextMessages = [
+                    { role: 'system', content: systemMessage },
+                    ...messages.slice(-10).map(m => ({
+                        role: m.sender === 'me' ? 'user' : 'assistant',
+                        content: m.text
+                    })),
+                    { role: 'user', content: userMsg.text }
+                ];
 
-            const reply = await engine.current.chat.completions.create({
-                messages: contextMessages
-            });
-            const aiText = reply.choices[0].message.content;
+                const reply = await engine.current.chat.completions.create({
+                    messages: contextMessages
+                });
+                aiText = reply.choices[0].message.content;
+            } else {
+                // Local Backend Mode (RAG)
+                const response = await fetch('/api/tutor/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: userMsg.text,
+                        user_id: 'guest', // In real app, pass actual user ID or JWT
+                    })
+                });
+
+                if (!response.ok) throw new Error('Backend error');
+                const data = await response.json();
+                aiText = data.response;
+            }
 
             const aiMsg = { sender: 'AI Tutor', text: aiText, timestamp: new Date(), sessionId: currentSessionId };
             setMessages(prev => [...prev, aiMsg]);
             updateSessionsState(currentSessionId, aiMsg);
 
             await api.saveChatMessage({ sender: 'AI Tutor', text: aiText, sessionId: currentSessionId });
-
-            // Log interaction for Admin Audit
             await api.logAIInteraction(userMsg.text, aiMsg.text);
 
         } catch (error) {
@@ -256,18 +278,42 @@ export default function AITutorPage() {
                         <div>
                             <h1 className="text-white font-bold">Lumina AI Tutor</h1>
                             <div className="flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full animate-pulse ${isLoading ? 'bg-amber-500' : isEngineReady ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span className={`w-2 h-2 rounded-full animate-pulse ${isLoading ? 'bg-amber-500' : (useWebLLM ? isEngineReady : true) ? 'bg-green-500' : 'bg-red-500'}`}></span>
                                 <span className="text-xs text-gray-400">
-                                    {isLoading ? 'Thinking...' : isEngineReady ? 'Online (WebLLM)' : 'Loading Model...'}
+                                    {isLoading ? 'Thinking...' : (useWebLLM ? (isEngineReady ? 'Online (WebLLM)' : 'Loading Model...') : 'Online (Local Backend)')}
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Mode Toggle */}
+                    <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/10">
+                        <button
+                            onClick={() => setUseWebLLM(true)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${useWebLLM
+                                    ? 'bg-lumina-primary text-black shadow-lg'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                }`}
+                        >
+                            <Globe className="w-3.5 h-3.5" />
+                            WebLLM
+                        </button>
+                        <button
+                            onClick={() => setUseWebLLM(false)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${!useWebLLM
+                                    ? 'bg-lumina-primary text-black shadow-lg'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                }`}
+                        >
+                            <Cpu className="w-3.5 h-3.5" />
+                            Local
+                        </button>
                     </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                    {!isEngineReady && (
+                    {useWebLLM && !isEngineReady && (
                         <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-4 text-center">
                             <Loader2 className="w-6 h-6 text-blue-400 animate-spin mx-auto mb-2" />
                             <p className="text-blue-200 font-semibold text-sm mb-1">{loadingProgress || "Initializing..."}</p>
@@ -280,10 +326,11 @@ export default function AITutorPage() {
                         </div>
                     )}
 
-                    {messages.length === 0 && isEngineReady ? (
+                    {messages.length === 0 && (useWebLLM ? isEngineReady : true) ? (
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-50">
                             <Sparkles className="w-16 h-16 text-lumina-primary mb-4" />
                             <h3 className="text-xl font-bold text-white mb-2">How can I help you learn?</h3>
+                            <p className="text-sm text-gray-400">Current Mode: {useWebLLM ? 'Browser (WebLLM)' : 'Local Server'}</p>
                         </div>
                     ) : (
                         messages.map((msg, idx) => (
@@ -326,20 +373,20 @@ export default function AITutorPage() {
                             suppressHydrationWarning
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={isEngineReady ? "Start a conversation..." : "Initializing AI..."}
-                            disabled={!isEngineReady}
+                            placeholder={useWebLLM && !isEngineReady ? "Initializing AI..." : "Start a conversation..."}
+                            disabled={useWebLLM && !isEngineReady}
                             className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-12 py-3.5 text-white placeholder:text-gray-500 focus:border-lumina-primary focus:bg-white/10 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <button
                             type="submit"
-                            disabled={!input.trim() || isLoading || !isEngineReady}
+                            disabled={!input.trim() || isLoading || (useWebLLM && !isEngineReady)}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-lumina-primary text-black rounded-lg hover:bg-lumina-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <Send className="w-4 h-4" />
                         </button>
                     </form>
                     <p className="text-center text-[10px] text-gray-500 mt-2">
-                        Running Lumina AI directly in your browser (WebLLM).
+                        {useWebLLM ? 'Running Lumina AI directly in your browser (WebLLM).' : 'Running on Local Server (RAG Enabled).'}
                     </p>
                 </div>
             </div>
