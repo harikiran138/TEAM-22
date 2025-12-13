@@ -9,7 +9,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
         const pdfjsLib = pdfjsModule.default || pdfjsModule;
 
         const version = pdfjsLib.version;
-        const WORKER_SRC = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
+        const WORKER_SRC = '/pdf.worker.min.mjs';
 
         console.log(`Setting worker to: ${WORKER_SRC}`);
         pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
