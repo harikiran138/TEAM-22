@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+  }
+  
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-yellow-600;
+}
+
+.glass {
+  @apply backdrop-blur-md bg-white/5 border-b border-white/10;
+}
+
+.glass-card {
+  @apply backdrop-blur-lg bg-white/10 dark:bg-white/5 border border-white/10;
+}
