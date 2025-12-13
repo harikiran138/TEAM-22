@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import Script from "next/script";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import DottedSurface from "@/components/ui/DottedSurface";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta" });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Lumina - The Future of Learning",
-    description: "Advanced AI-powered learning platform",
+    title: "Lumina - AI-Powered Learning",
+    description: "Personalized learning pathways powered by AI",
 };
 
 export default function RootLayout({
@@ -20,15 +18,15 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className={`${inter.variable} ${jakarta.variable} font-sans`}>
+            <body className={inter.className} suppressHydrationWarning>
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="dark"
-                    enableSystem
+                    forcedTheme="dark"
                     disableTransitionOnChange
                 >
-                    <DottedSurface />
                     {children}
+
                 </ThemeProvider>
             </body>
         </html>
