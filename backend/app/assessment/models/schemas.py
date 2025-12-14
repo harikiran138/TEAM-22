@@ -1,33 +1,54 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Literal
 from datetime import datetime
+import uuid
 
-class QuestionMetadata(BaseModel):
-    question_id: str
-    concepts: List[str]
-    difficulty: float = Field(..., ge=0.0, le=1.0)
-    discrimination: float = 1.0  # How well it differentiates high/low ability
-    guessing: float = 0.0  # Probability of guessing correctly
-    blooms_level: str
-    format: str = "mcq"
+class Option(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
 
 class Question(BaseModel):
-    id: str
-    content: str
-    options: List[str]  # For MCQ
-    correct_answer: str
-    explanation: Optional[str] = None
-    metadata: QuestionMetadata
-
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
+    options: List[Option]
+    correct_option_id: str
+    difficulty: float = 0.5  # 0.0 to 1.0
+    topic: str
+    
 class StudentResponse(BaseModel):
     question_id: str
-    selected_answer: str
+    selected_option_id: str
     is_correct: bool
-    time_taken_seconds: float
-    confidence: Optional[float] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-class MasteryState(BaseModel):
+class AssessmentSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     student_id: str
-    # Map concept_name -> probability [0.0, 1.0]
-    concept_mastery: Dict[str, float] = {}
-    last_updated: datetime = Field(default_factory=datetime.now)
+    topic: str
+    current_difficulty: float = 0.5
+    responses: List[StudentResponse] = []
+    is_completed: bool = False
+    start_time: datetime = Field(default_factory=datetime.utcnow)
+    end_time: Optional[datetime] = None
+    final_score: Optional[float] = None
+
+class QuestionRequest(BaseModel):
+    topic: str
+    difficulty: float
+
+class StartAssessmentRequest(BaseModel):
+    student_id: str
+    topic: str
+
+
+class SubmitAnswerRequest(BaseModel):
+    session_id: str
+    question_id: str
+    selected_option_id: str
+
+class AssessmentResult(BaseModel):
+    session_id: str
+    total_questions: int
+    correct_answers: int
+    final_ability_estimate: float
+    message: str

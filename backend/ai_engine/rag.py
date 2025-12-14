@@ -107,4 +107,10 @@ class RAGEngine:
         return top_k_docs
 
 # Singleton instance
-rag_engine = RAGEngine()
+_rag_engine = None
+
+def get_rag_engine():
+    global _rag_engine
+    if _rag_engine is None:
+        _rag_engine = RAGEngine()
+    return _rag_engine

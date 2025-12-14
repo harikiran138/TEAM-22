@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional
 from ai_engine.llm import get_llm_provider
-from ai_engine.rag import rag_engine
+from ai_engine.rag import get_rag_engine
+
+
 
 router = APIRouter()
 llm = get_llm_provider()
@@ -88,6 +90,7 @@ async def tutor_chat(request: TutorChatRequest):
              }
 
         # 1. Retrieve Context
+        rag_engine = get_rag_engine()
         relevant_docs = rag_engine.query(clean_message)
         context_str = "\n\n".join(relevant_docs)
         
@@ -99,7 +102,7 @@ async def tutor_chat(request: TutorChatRequest):
         
         behavior = state.get("behavior_label", "neutral")
         # Get recommendation (pass empty graph for now/default)
-        recommendation = pathway_agent.recommend_next_node(state, {})
+        recommendation = get_pathway_agent().recommend_next_node(state, {})
         
         # 0.5 Fetch Available Courses from DB
         from store.course_store import CourseStore
@@ -146,6 +149,7 @@ async def ingest_content(request: IngestRequest):
     Ingest text content into the RAG vector store.
     """
     try:
+        rag_engine = get_rag_engine()
         rag_engine.ingest_text(request.text, request.metadata)
         return {"status": "success", "message": "Content ingested successfully"}
     except Exception as e:
@@ -155,8 +159,20 @@ async def ingest_content(request: IngestRequest):
 from ai_engine.swarm.pathway import PathwayAgent
 from learner_profile.models.behavior import BehaviorModel
 
-pathway_agent = PathwayAgent()
-behavior_model = BehaviorModel()
+_pathway_agent = None
+_behavior_model = None
+
+def get_pathway_agent():
+    global _pathway_agent
+    if _pathway_agent is None:
+        _pathway_agent = PathwayAgent()
+    return _pathway_agent
+
+def get_behavior_model():
+    global _behavior_model
+    if _behavior_model is None:
+        _behavior_model = BehaviorModel()
+    return _behavior_model
 
 class PathwayRequest(BaseModel):
     learner_state: dict
@@ -170,7 +186,7 @@ async def recommend_pathway(request: PathwayRequest):
     """
     Get next node recommendation from Pathway Agent.
     """
-    recommendation = pathway_agent.recommend_next_node(request.learner_state, request.curriculum_graph)
+    recommendation = get_pathway_agent().recommend_next_node(request.learner_state, request.curriculum_graph)
     return {"recommendation": recommendation}
 
 @router.post("/profile/behavior")
@@ -178,7 +194,8 @@ async def classify_behavior(request: BehaviorRequest):
     """
     Classify learner behavior.
     """
-    label = behavior_model.classify_behavior(request.session_data)
-    score = behavior_model.calculate_engagement_score(request.session_data)
+    model = get_behavior_model()
+    label = model.classify_behavior(request.session_data)
+    score = model.calculate_engagement_score(request.session_data)
     return {"behavior": label, "engagement_score": score}
 

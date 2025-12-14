@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import ai, handwriting_simple as handwriting, assignments
 
 from app.database.manager import db
-from core.config import settings
+from app.core.config import settings
 
 app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
 
@@ -40,8 +40,8 @@ app.include_router(courses.router, prefix="/api/courses", tags=["Courses"])
 from routers import auth
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 
-from assessment.api import assessment_routes
-app.include_router(assessment_routes.router, prefix="/api/assessment", tags=["Assessment"])
+from app.assessment.api.router import router as assessment_router
+app.include_router(assessment_router, prefix="/api/assessment", tags=["Assessment"])
 
 @app.get("/")
 def read_root():
