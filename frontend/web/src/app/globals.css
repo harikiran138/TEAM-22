@@ -26,18 +26,15 @@
 body {
     color: rgb(var(--foreground-rgb));
     background-color: #000000;
-    /* Pure black base */
+    /* Simplified background for better performance */
     background-image:
         radial-gradient(at 0% 0%, rgba(20, 20, 20, 0.3) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(255, 215, 0, 0.1) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(50, 50, 50, 0.1) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(20, 20, 20, 0.1) 0px, transparent 50%),
-        radial-gradient(800px circle at 50% 200px, rgba(255, 255, 255, 0.01), transparent 40%);
+        radial-gradient(at 100% 100%, rgba(20, 20, 20, 0.1) 0px, transparent 50%);
     background-attachment: fixed;
     min-height: 100vh;
 }
 
-/* Floating background orbs for extra depth and motion */
+/* Optimized floating orbs */
 body::before,
 body::after {
     content: '';
@@ -45,23 +42,27 @@ body::after {
     width: 600px;
     height: 600px;
     border-radius: 50%;
-    filter: blur(100px);
+    filter: blur(80px); /* Reduced blur radius */
     z-index: -1;
-    opacity: 0.4;
+    opacity: 0.3;
+    pointer-events: none; /* Improve scroll performance */
+    will-change: transform; /* Hint to browser */
     animation: float 20s infinite alternate ease-in-out;
 }
 
 body::before {
-    background: radial-gradient(circle, rgba(50, 50, 50, 0.1), transparent 70%);
+    background: radial-gradient(circle, rgba(50, 50, 50, 0.15), transparent 70%);
     top: -10%;
     left: -10%;
-    animation-delay: -5s;
+    transform: translate3d(0,0,0); /* Force hardware acceleration */
 }
 
 body::after {
-    background: radial-gradient(circle, rgba(255, 215, 0, 0.2), transparent 70%);
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.15), transparent 70%);
     bottom: -10%;
     right: -10%;
+    animation-delay: -10s;
+    transform: translate3d(0,0,0);
 }
 
 @keyframes float {

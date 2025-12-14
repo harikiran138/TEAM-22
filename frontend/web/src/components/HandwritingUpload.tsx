@@ -6,10 +6,11 @@ import { Upload, FileText, CheckCircle, Loader2 } from "lucide-react";
 interface UploadProps {
     type: "assignment" | "note";
     userId?: string;
+    assignmentId?: string;
     onUploadComplete?: (data: any) => void;
 }
 
-export default function HandwritingUpload({ type, userId = "guest", onUploadComplete }: UploadProps) {
+export default function HandwritingUpload({ type, userId = "guest", assignmentId, onUploadComplete }: UploadProps) {
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
@@ -28,6 +29,7 @@ export default function HandwritingUpload({ type, userId = "guest", onUploadComp
         formData.append("file", file);
         formData.append("type", type);
         formData.append("user_id", userId);
+        if (assignmentId) formData.append("assignment_id", assignmentId);
 
         try {
             const response = await fetch("http://localhost:8000/api/handwriting/upload", {

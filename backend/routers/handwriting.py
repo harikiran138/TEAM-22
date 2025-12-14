@@ -21,7 +21,8 @@ async def upload_document(
     file: UploadFile = File(...), 
     type: str = Form(...), # 'assignment' or 'note'
     user_id: str = Form("guest"),
-    course_id: str = Form("default")
+    course_id: str = Form("default"),
+    assignment_id: Optional[str] = Form(None) # Link to definition
 ):
     """
     Upload an assignment or note.
@@ -50,7 +51,8 @@ async def upload_document(
             "type": type,
             "image_path": file_path,
             "digital_text": extracted_text,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "assignment_id": assignment_id
         }
         
         if type == "note":

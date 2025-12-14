@@ -1,10 +1,11 @@
 from fastapi import FastAPI
-from routers import ai, handwriting
+from routers import ai, handwriting, assignments
 
 app = FastAPI(title="Lumina Backend API")
 
 app.include_router(ai.router, prefix="/api", tags=["AI"])
 app.include_router(handwriting.router, prefix="/api/handwriting", tags=["Handwriting"])
+app.include_router(assignments.router, prefix="/api/assignments", tags=["Assignments"])
 
 @app.get("/")
 def read_root():
