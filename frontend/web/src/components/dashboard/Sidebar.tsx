@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 
 const navItems = [
     { name: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+    { name: 'Assignments', href: '/student/assignments', icon: FileText },
     { name: 'AI Tutor', href: '/student/ai_tutor', icon: Bot },
     { name: 'My Courses', href: '/student/courses', icon: BookOpen },
     { name: 'My Notes', href: '/student/my_notes', icon: FileText },
