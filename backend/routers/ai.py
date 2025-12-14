@@ -68,15 +68,31 @@ async def generate_course(request: CourseGenerationRequest):
 @router.post("/tutor/chat")
 async def tutor_chat(request: TutorChatRequest):
     """
-    Chat with the AI Tutor using RAG context.
+    Chat with the AI Tutor using RAG context and Pathway personalization.
     """
     try:
         # 1. Retrieve Context
         relevant_docs = rag_engine.query(request.message)
         context_str = "\n\n".join(relevant_docs)
         
-        # 2. Construct Prompt
-        system_prompt = "You are a helpful AI Tutor. Use the provided Context to answer the user's question. If the answer is not in the context, use your general knowledge but mention that it's outside the course material."
+        # 2. Retrieve Learner State & Pathway Recommendation
+        # Initialize store if not global (or import and use singular instance)
+        from learner_profile.store.state import StateStore
+        store = StateStore()
+        state = store.get_state(request.user_id)
+        
+        behavior = state.get("behavior_label", "neutral")
+        # Get recommendation (pass empty graph for now/default)
+        recommendation = pathway_agent.recommend_next_node(state, {})
+        
+        # 3. Construct Prompt with Personalization
+        system_prompt = (
+            "You are a helpful AI Tutor. Use the provided Context to answer the user's question.\n"
+            f"Adapt your response to the learner's profile:\n"
+            f"- Behavior: {behavior} (If 'frustrated', be encouraging. If 'focused', be concise).\n"
+            f"- Pathway Recommendation: {recommendation} (If 'review', emphasize basics. If 'advance', challenge them).\n"
+            "If the answer is not in the context, use your general knowledge but mention that it's outside the course material."
+        )
         
         user_prompt = f"""
         Context:
@@ -85,9 +101,9 @@ async def tutor_chat(request: TutorChatRequest):
         Question: {request.message}
         """
         
-        # 3. Generate Answer
+        # 4. Generate Answer
         response = llm.generate(user_prompt, system_prompt)
-        return {"response": response, "context_used": relevant_docs}
+        return {"response": response, "context_used": relevant_docs, "personalization": {"behavior": behavior, "recommendation": recommendation}}
         
     except Exception as e:
         print(f"Tutor Error: {e}")
@@ -103,3 +119,35 @@ async def ingest_content(request: IngestRequest):
         return {"status": "success", "message": "Content ingested successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Pathway Agent Integration ---
+from ai_engine.swarm.pathway import PathwayAgent
+from learner_profile.models.behavior import BehaviorModel
+
+pathway_agent = PathwayAgent()
+behavior_model = BehaviorModel()
+
+class PathwayRequest(BaseModel):
+    learner_state: dict
+    curriculum_graph: dict
+
+class BehaviorRequest(BaseModel):
+    session_data: dict
+
+@router.post("/pathway/recommend")
+async def recommend_pathway(request: PathwayRequest):
+    """
+    Get next node recommendation from Pathway Agent.
+    """
+    recommendation = pathway_agent.recommend_next_node(request.learner_state, request.curriculum_graph)
+    return {"recommendation": recommendation}
+
+@router.post("/profile/behavior")
+async def classify_behavior(request: BehaviorRequest):
+    """
+    Classify learner behavior.
+    """
+    label = behavior_model.classify_behavior(request.session_data)
+    score = behavior_model.calculate_engagement_score(request.session_data)
+    return {"behavior": label, "engagement_score": score}
+

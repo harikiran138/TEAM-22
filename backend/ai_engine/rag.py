@@ -1,64 +1,105 @@
 import chromadb
-import requests
 import uuid
-from typing import List, Dict, Any, Optional
+import torch
+from typing import List, Dict, Any
+from sentence_transformers import SentenceTransformer, CrossEncoder
+
+class TextChunker:
+    """
+    Standard chunking with overlap.
+    """
+    def __init__(self, chunk_size: int = 500, overlap: int = 50):
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+
+    def chunk(self, text: str) -> List[str]:
+        if not text:
+            return []
+        
+        # Split by simple sliding window
+        # For simplicity, character based. In prod, update to token based.
+        chunks = []
+        start = 0
+        text_len = len(text)
+        
+        while start < text_len:
+            end = min(start + self.chunk_size, text_len)
+            chunks.append(text[start:end])
+            if end == text_len:
+                break
+            start += self.chunk_size - self.overlap
+            
+        return chunks
 
 class RAGEngine:
     def __init__(self, collection_name: str = "course_content"):
-        # Use persistent storage in the 'db' directory
+        # 1. Vector DB
         self.client = chromadb.PersistentClient(path="./backend/db/chroma")
         self.collection = self.client.get_or_create_collection(name=collection_name)
-        self.ollama_host = "http://localhost:11434"
-
-    def get_embedding(self, text: str) -> List[float]:
-        try:
-            response = requests.post(
-                f"{self.ollama_host}/api/embeddings",
-                json={"model": "llama3", "prompt": text}
-            )
-            response.raise_for_status()
-            return response.json()["embedding"]
-        except Exception as e:
-            print(f"Embedding Error: {e}")
-            return []
+        
+        # 2. Embedding Model (Small HF Model)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # "all-MiniLM-L6-v2" is optimal for speed/accuracy ratio
+        print(f"Loading Embedding Model on {self.device}...")
+        self.embedder = SentenceTransformer('all-MiniLM-L6-v2', device=self.device)
+        
+        # 3. Re-Ranker (Cross-Encoder)
+        # "ms-marco-MiniLM-L-6-v2" is excellent for Passage Ranking
+        print("Loading Re-Ranker...")
+        self.reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', device=self.device)
 
     def ingest_text(self, text: str, metadata: Dict[str, Any] = None):
-        if not text.strip():
-            return
-            
-        # Simple chunking by paragraph for now
-        chunks = [c.strip() for c in text.split('\n\n') if c.strip()]
+        """
+        Pipeline: Chunk -> Embed -> Store
+        """
+        chunker = TextChunker()
+        chunks = chunker.chunk(text)
         
+        if not chunks:
+            return
+
         ids = [str(uuid.uuid4()) for _ in chunks]
-        embeddings = [self.get_embedding(chunk) for chunk in chunks]
+        embeddings = self.embedder.encode(chunks, convert_to_tensor=False).tolist()
         
-        # Filter out failed embeddings
-        valid_data = [(i, c, e) for i, c, e in zip(ids, chunks, embeddings) if e]
+        metadata_list = [metadata or {} for _ in chunks]
         
-        if not valid_data:
-            return
-
         self.collection.add(
-            ids=[x[0] for x in valid_data],
-            documents=[x[1] for x in valid_data],
-            embeddings=[x[2] for x in valid_data],
-            metadatas=[metadata or {} for _ in valid_data]
+            ids=ids,
+            documents=chunks,
+            embeddings=embeddings,
+            metadatas=metadata_list
         )
-        print(f"Ingested {len(valid_data)} chunks.")
+        print(f"Ingested {len(chunks)} chunks.")
 
-    def query(self, query_text: str, n_results: int = 3) -> List[str]:
-        query_embedding = self.get_embedding(query_text)
-        if not query_embedding:
-            return []
-            
+    def query(self, query_text: str, n_results: int = 5) -> List[str]:
+        """
+        Pipeline: Query -> Vector Search -> Re-Rank -> Return Top K
+        """
+        # 1. Vector Search (Retrieve more than we need for re-ranking)
+        query_embedding = self.embedder.encode(query_text).tolist()
+        
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=n_results
+            n_results=n_results * 2 # Fetch 2x candidates
         )
         
-        # Flatten results
         documents = results['documents'][0] if results['documents'] else []
-        return documents
+        
+        if not documents:
+            return []
+            
+        # 2. Re-Ranking
+        # Pair query with each document
+        pairs = [[query_text, doc] for doc in documents]
+        scores = self.reranker.predict(pairs)
+        
+        # Sort by score (descending)
+        scored_docs = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
+        
+        # Return top K
+        top_k_docs = [doc for doc, score in scored_docs[:n_results]]
+        
+        return top_k_docs
 
-# Singleton
+# Singleton instance
 rag_engine = RAGEngine()
