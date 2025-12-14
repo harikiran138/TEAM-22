@@ -32,10 +32,11 @@ class UserStore:
 
     def create_user(self, email: str, password: str, full_name: str, role: str = "student") -> dict:
         collection = self.users_collection
-        if not collection:
+        if collection is None:
             raise Exception("Database not connected")
             
         hashed_password = self.get_password_hash(password)
+        # ... (rest is same, but I need to include it or rely on replace block matching)
         user = {
             "id": str(uuid.uuid4()),
             "email": email,
@@ -57,7 +58,7 @@ class UserStore:
 
     def get_user_by_email(self, email: str) -> Optional[dict]:
         collection = self.users_collection
-        if not collection:
+        if collection is None:
             return None
         doc = collection.find_one({"email": email})
         if doc:
@@ -67,7 +68,7 @@ class UserStore:
 
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         collection = self.users_collection
-        if not collection:
+        if collection is None:
             return None
         doc = collection.find_one({"id": user_id})
         if doc:

@@ -19,7 +19,7 @@ class CourseStore:
 
     def create_course(self, name: str, code: str, description: str, teacher_id: str) -> dict:
         collection = self.courses_collection
-        if not collection: raise Exception("Database not connected")
+        if collection is None: raise Exception("Database not connected")
         course = {
             "id": str(uuid.uuid4()),
             "name": name,
@@ -33,7 +33,7 @@ class CourseStore:
 
     def list_courses(self) -> List[dict]:
         collection = self.courses_collection
-        if not collection: return []
+        if collection is None: return []
         cursor = collection.find({})
         courses = []
         for doc in cursor:
@@ -43,7 +43,7 @@ class CourseStore:
 
     def get_course_by_code(self, code: str) -> Optional[dict]:
         collection = self.courses_collection
-        if not collection: return None
+        if collection is None: return None
         doc = collection.find_one({"code": code})
         if doc:
             doc.pop("_id", None)
