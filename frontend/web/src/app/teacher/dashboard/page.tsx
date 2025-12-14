@@ -148,7 +148,71 @@ export default async function TeacherDashboard() {
                     </div>
                 </div>
             </div>
+            {/* Recent Assignments Section */}
+            <div className="mt-8 relative z-10">
+                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                    <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-white">Recent Assignments</h2>
+                        <a href="/teacher/assignments/create" className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <PlusCircle size={16} />
+                            Create New
+                        </a>
+                    </div>
+                    <div className="p-6">
+                        <AssignmentsList />
+                    </div>
+                </div>
+            </div>
         </>
+    );
+}
+
+async function getAssignments() {
+    try {
+        const res = await fetch('http://localhost:8000/api/assignments/list', { cache: 'no-store' });
+        if (!res.ok) return [];
+        return await res.json();
+    } catch (e) {
+        console.error("Failed to fetch assignments", e);
+        return [];
+    }
+}
+
+async function AssignmentsList() {
+    const assignments = await getAssignments();
+
+    if (assignments.length === 0) {
+        return <p className="text-gray-400 text-center py-4">No assignments created yet.</p>;
+    }
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+                <thead>
+                    <tr className="text-gray-400 border-b border-white/10">
+                        <th className="pb-3 text-sm font-medium">Title</th>
+                        <th className="pb-3 text-sm font-medium">Course</th>
+                        <th className="pb-3 text-sm font-medium">Due Date</th>
+                        <th className="pb-3 text-sm font-medium">Description</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                    {assignments.map((asm: any) => (
+                        <tr key={asm.id} className="group hover:bg-white/5 transition-colors">
+                            <td className="py-4 text-white font-medium pl-2">{asm.title}</td>
+                            <td className="py-4 text-gray-400">{asm.course_id}</td>
+                            <td className="py-4 text-gray-400">
+                                {new Date(asm.due_date).toLocaleDateString()}
+                                <span className="ml-2 text-xs text-gray-500">
+                                    {new Date(asm.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </td>
+                            <td className="py-4 text-gray-500 text-sm max-w-md truncate">{asm.description}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 }
 

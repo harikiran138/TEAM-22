@@ -12,6 +12,7 @@ class AssignmentStore:
         if cls._instance is None:
             cls._instance = super(AssignmentStore, cls).__new__(cls)
             cls._instance.assignments = []
+            cls._instance.submissions = []
         return cls._instance
 
     def create_assignment(self, title: str, course_id: str, description: str, due_date: str, created_by: str) -> dict:
@@ -26,6 +27,22 @@ class AssignmentStore:
         }
         self.assignments.append(assignment)
         return assignment
+
+    def submit_assignment(self, assignment_id: str, student_id: str, file_url: str) -> dict:
+        submission = {
+            "id": str(uuid.uuid4()),
+            "assignment_id": assignment_id,
+            "student_id": student_id,
+            "file_url": file_url,
+            "submitted_at": datetime.now().isoformat(),
+            "grade": None,
+            "feedback": None
+        }
+        self.submissions.append(submission)
+        return submission
+
+    def get_submissions(self, assignment_id: str) -> List[dict]:
+        return [s for s in self.submissions if s["assignment_id"] == assignment_id]
 
     def list_assignments(self, course_id: Optional[str] = None) -> List[dict]:
         if course_id:
