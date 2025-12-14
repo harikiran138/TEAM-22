@@ -190,6 +190,22 @@ function AssignmentsList({ assignments, loading }: { assignments: any[], loading
 
 function CreateAssignmentForm({ onSuccess }: { onSuccess: () => void }) {
     const [loading, setLoading] = useState(false);
+    const [courses, setCourses] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchCourses = async () => {
+            try {
+                const res = await fetch("http://localhost:8000/api/courses/list");
+                if (res.ok) {
+                    const data = await res.json();
+                    setCourses(data);
+                }
+            } catch (e) {
+                console.error("Failed to fetch courses", e);
+            }
+        };
+        fetchCourses();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -239,12 +255,16 @@ function CreateAssignmentForm({ onSuccess }: { onSuccess: () => void }) {
                         <label className="block text-sm font-medium text-gray-300 mb-2">Course</label>
                         <select
                             name="course_id"
+                            required
+                            defaultValue=""
                             className="w-full p-3 bg-black/20 border border-white/10 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors"
                         >
-                            <option value="math101" className="bg-gray-800">Math 101 - Introduction to Calculus</option>
-                            <option value="phy101" className="bg-gray-800">Physics 101 - Mechanics</option>
-                            <option value="cs101" className="bg-gray-800">CS 101 - Intro to Programming</option>
-                            <option value="ai202" className="bg-gray-800">AI 202 - Neural Networks</option>
+                            <option value="" disabled>Select a course</option>
+                            {courses.map(course => (
+                                <option key={course.id} value={course.id} className="bg-gray-800">
+                                    {course.name} {course.code ? `(${course.code})` : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>

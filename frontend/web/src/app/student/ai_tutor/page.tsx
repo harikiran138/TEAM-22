@@ -59,11 +59,30 @@ export default function AITutorPage() {
                 const profile = await api.getStudentProfile();
                 const notes = await api.getNotes();
 
+                // Fetch full course catalog from DB
+                let allCourses = [];
+                try {
+                    const coursesRes = await fetch("http://localhost:8000/api/courses/list");
+                    if (coursesRes.ok) {
+                        allCourses = await coursesRes.json();
+                    }
+                } catch (ce) {
+                    console.error("Failed to fetch course catalog", ce);
+                }
+
                 let context = `Current User: ${user?.name || 'Student'}\n`;
+
+                // Add Full Course Catalog to Context
+                if (allCourses.length > 0) {
+                    context += "\nOfficial Course Catalog (Only recommend or discuss courses from this list):\n";
+                    allCourses.forEach((c: any) => {
+                        context += `- ${c.name} (${c.code}): ${c.description}\n`;
+                    });
+                }
 
                 // Personalization Data
                 if (profile) {
-                    if (profile.bio) context += `Bio: ${profile.bio}\n`;
+                    if (profile.bio) context += `\nBio: ${profile.bio}\n`;
                     if (profile.skills && profile.skills.length > 0) context += `Skills: ${profile.skills.join(', ')}\n`;
                     if (profile.preferences) {
                         context += `Learning Style: ${profile.preferences.learningStyle || 'Visual'}\n`;
@@ -72,7 +91,7 @@ export default function AITutorPage() {
                 }
 
                 if (dashboard.enrolledCourses && dashboard.enrolledCourses.length > 0) {
-                    context += "\nEnrolled Courses:\n";
+                    context += "\nEnrolled Courses (User is currently taking):\n";
                     dashboard.enrolledCourses.forEach((c: any) => {
                         context += `- ${c.title} (Progress: ${c.progress}%)\n`;
                     });
@@ -156,10 +175,10 @@ export default function AITutorPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isLoading]);
 
-    // Initialize WebLLM when 'lumina' mode is selected
+    // Initialize WebLLM when 'lumina' or 'local' mode is selected
     useEffect(() => {
         const initWebLLM = async () => {
-            if (provider === 'lumina' && !engine && !isModelLoading) {
+            if ((provider === 'lumina' || provider === 'local') && !engine && !isModelLoading) {
                 setIsModelLoading(true);
                 try {
                     const newEngine = await CreateMLCEngine(
@@ -200,9 +219,17 @@ export default function AITutorPage() {
             let replyText = "";
             let source = "api";
 
-            if (provider === 'lumina' && engine) {
-                // Use WebLLM
-                const systemPrompt = `You are Lumina, a helpful AI assistant. 
+            if ((provider === 'lumina' || provider === 'local') && engine) {
+                // Use WebLLM (Lumina Fast OR Lumina Edge)
+                let identityPrompt = "You are Lumina, a helpful AI assistant.";
+
+                if (provider === 'local') {
+                    identityPrompt = `You are Lumina Edge, a private, on-device AI Tutor.
+You run entirely within the user's browser, ensuring maximum privacy.
+You have full access to the user's context and should use it to provide personalized answers.`;
+                }
+
+                const systemPrompt = `${identityPrompt}
 User Context:
 ${userContext}`;
 
@@ -220,9 +247,9 @@ ${userContext}`;
                 replyText = completion.choices[0].message.content || "";
                 source = "webllm";
             } else {
-                // Use Router (Cloud or Local)
+                // Use Router (Cloud API)
                 let query = userMsg.text;
-                if (provider === 'local') query = `[LOCAL] ${query}`;
+                // No longer prefixing [LOCAL] since 'local' is handled by WebLLM above
 
                 // Pass userContext to router
                 const result = await processMessage(query, userContext);
@@ -368,9 +395,9 @@ ${userContext}`;
                             <Sparkles className="w-16 h-16 text-lumina-primary mb-4" />
                             <h3 className="text-xl font-bold text-white mb-2">How can I help you learn?</h3>
                             <p className="text-sm text-gray-400">Current Mode: {getProviderName(provider)}</p>
-                            {provider === 'lumina' && (
+                            {(provider === 'lumina' || provider === 'local') && (
                                 <p className="text-xs text-lumina-primary mt-2">
-                                    {isModelLoading ? `Initializing Lumina Native AI... ${progress}` : "Lumina Native AI Ready (Instant Replies)"}
+                                    {isModelLoading ? `Initializing Lumina Native AI (LLama 3.2 1B)... ${progress}` : "Lumina Native AI Ready"}
                                 </p>
                             )}
                         </div>
@@ -428,7 +455,7 @@ ${userContext}`;
                     </form>
                     <p className="text-center text-[10px] text-gray-500 mt-2">
                         {provider === 'lumina' ? 'Running locally in-browser via WebLLM.' :
-                            provider === 'local' ? 'Running on Lumina Edge (Local Server).' :
+                            provider === 'local' ? 'Running on Lumina Edge (Offline capable, Llama 3.2 1B).' :
                                 'Running via Lumina Cloud Intelligence.'}
                     </p>
                 </div>

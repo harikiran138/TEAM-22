@@ -12,7 +12,7 @@ class Database:
         # so we should check if we should use that or a hardcoded one for now given requirements.txt has pymongo.
         # For this task, I'll use a standard local mongo url or env var.
         mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-        self.client = MongoClient(mongo_url)
+        self.client = MongoClient(mongo_url, serverSelectionTimeoutMS=5000)
         self.db = self.client["lumina_db"]
         print("Connected to MongoDB")
 

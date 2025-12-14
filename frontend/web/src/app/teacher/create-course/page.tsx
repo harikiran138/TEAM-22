@@ -16,7 +16,8 @@ export default function CreateCoursePage() {
         description: '',
         level: 'Beginner',
         image: '',
-        id: '' // Slug
+        id: '', // Slug
+        code: ''
     });
 
     const handleGenerateSlug = (title: string) => {
@@ -93,6 +94,17 @@ export default function CreateCoursePage() {
                             value={formData.id}
                             readOnly
                             className="w-full bg-black/40 border border-white/5 rounded-lg px-4 py-2 text-gray-500 cursor-not-allowed font-mono text-sm"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Course Code (e.g. math101)</label>
+                        <input
+                            type="text"
+                            value={formData.code}
+                            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                            placeholder="e.g. cs101"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-lumina-primary outline-none transition-all"
                         />
                     </div>
 

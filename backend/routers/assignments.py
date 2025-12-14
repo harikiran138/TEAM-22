@@ -60,10 +60,72 @@ async def submit_assignment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/list")
-async def list_assignments(course_id: Optional[str] = None):
+from services.ocr_service import ocr_service
+from services.grader_service import grader_service
+
+# ... (existing imports)
+
+@router.post("/{assignment_id}/submissions/{submission_id}/grade")
+async def grade_submission(assignment_id: str, submission_id: str):
     """
-    List assignment definitions with submission counts.
+    Grade a submission using AI.
+    """
+    # 1. Get Submission
+    submissions = store.get_submissions(assignment_id)
+    submission = next((s for s in submissions if s["id"] == submission_id), None)
+    
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    # 2. Get Assignment for Rubric/Description
+    assignments_list = store.list_assignments()
+    assignment = next((a for a in assignments_list if a["id"] == assignment_id), None)
+    
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    description = assignment.get("description", "")
+
+    # 3. Perform OCR
+    file_path = submission["file_path"]
+    full_path = os.path.abspath(file_path)
+    
+    print(f"Processing OCR for: {full_path}")
+    extracted_text = ocr_service.extract_text(full_path)
+    
+    # 4. Grade
+    print(f"Grading submission against description...")
+    result = grader_service.grade_submission(extracted_text, description)
+    
+    # Add OCR text to result for reference
+    result["ocr_text"] = extracted_text
+
+    # 5. Save Grade to DB
+    store.update_submission_grade(submission_id, result["score"], result["feedback"], extracted_text)
+    
+    return result
+
+@router.put("/{assignment_id}/submissions/{submission_id}/score")
+async def update_submission_score(
+    assignment_id: str, 
+    submission_id: str,
+    data: dict
+):
+    """
+    Manually update/edit a submission score and feedback.
+    """
+    try:
+        score = data.get("score")
+        feedback = data.get("feedback")
+        store.update_submission_grade(submission_id, score, feedback)
+        return {"status": "success", "score": score, "feedback": feedback}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/list")
+async def list_assignments(course_id: Optional[str] = None, student_id: Optional[str] = None):
+    """
+    List assignment definitions with submission counts and student status.
     """
     assignments = store.list_assignments(course_id)
     # Add submission count to each assignment
@@ -72,6 +134,13 @@ async def list_assignments(course_id: Optional[str] = None):
         submissions = store.get_submissions(a["id"])
         a_copy = a.copy()
         a_copy["submission_count"] = len(submissions)
+        
+        # Check if specific student has submitted
+        if student_id:
+            user_submission = store.get_student_submission(a["id"], student_id)
+            if user_submission:
+                a_copy["user_submission"] = user_submission
+                
         results.append(a_copy)
     return results
 
