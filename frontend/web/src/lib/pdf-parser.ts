@@ -64,9 +64,9 @@ export async function extractStructuredData(file: File): Promise<StructuredModul
     try {
         const pdfjsModule = await import('pdfjs-dist');
         const pdfjsLib = pdfjsModule.default || pdfjsModule;
-        const version = pdfjsLib.version;
-        // Use standard CDN for worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
+        const WORKER_SRC = '/pdf.worker.min.mjs';
+        console.log(`Setting worker to: ${WORKER_SRC}`);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 
         const arrayBuffer = await file.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -252,8 +252,9 @@ export async function extractFirstNPages(file: File, n: number = 20): Promise<st
     try {
         const pdfjsModule = await import('pdfjs-dist');
         const pdfjsLib = pdfjsModule.default || pdfjsModule;
-        const version = pdfjsLib.version;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
+        const WORKER_SRC = '/pdf.worker.min.mjs';
+        console.log(`Setting worker to: ${WORKER_SRC}`);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 
         const arrayBuffer = await file.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -285,8 +286,9 @@ export async function extractPageRange(file: File, start: number, end: number): 
     try {
         const pdfjsModule = await import('pdfjs-dist');
         const pdfjsLib = pdfjsModule.default || pdfjsModule;
-        const version = pdfjsLib.version;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
+        const WORKER_SRC = '/pdf.worker.min.mjs';
+        console.log(`Setting worker to: ${WORKER_SRC}`);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 
         const arrayBuffer = await file.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
