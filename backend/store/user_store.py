@@ -9,13 +9,20 @@ class UserStore:
     MongoDB store for Users.
     """
     def __init__(self):
-        self.db = db.get_db()
-        if self.db is not None:
-            self.users_collection = self.db["users"]
-            # Create index on email
-            self.users_collection.create_index("email", unique=True)
-        else:
-            self.users_collection = None
+        self._users_collection = None
+
+    @property
+    def users_collection(self):
+        if self._users_collection is None:
+            _db = db.get_db()
+            if _db is not None:
+                self._users_collection = _db["users"]
+                # Create index on email if possible
+                try:
+                    self._users_collection.create_index("email", unique=True)
+                except Exception as e:
+                    print(f"Error creating index: {e}")
+        return self._users_collection
 
     def verify_password(self, plain_password, hashed_password):
         return verify_password(plain_password, hashed_password)
@@ -24,7 +31,8 @@ class UserStore:
         return get_password_hash(password)
 
     def create_user(self, email: str, password: str, full_name: str, role: str = "student") -> dict:
-        if not self.users_collection:
+        collection = self.users_collection
+        if not collection:
             raise Exception("Database not connected")
             
         hashed_password = self.get_password_hash(password)
@@ -37,7 +45,7 @@ class UserStore:
             "created_at": datetime.now().isoformat()
         }
         try:
-            self.users_collection.insert_one(user)
+            collection.insert_one(user)
             user.pop("_id", None)
             user.pop("hashed_password", None)
             return user
@@ -48,18 +56,20 @@ class UserStore:
             raise e
 
     def get_user_by_email(self, email: str) -> Optional[dict]:
-        if not self.users_collection:
+        collection = self.users_collection
+        if not collection:
             return None
-        doc = self.users_collection.find_one({"email": email})
+        doc = collection.find_one({"email": email})
         if doc:
             doc.pop("_id", None)
             return doc
         return None
 
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
-        if not self.users_collection:
+        collection = self.users_collection
+        if not collection:
             return None
-        doc = self.users_collection.find_one({"id": user_id})
+        doc = collection.find_one({"id": user_id})
         if doc:
             doc.pop("_id", None)
             return doc

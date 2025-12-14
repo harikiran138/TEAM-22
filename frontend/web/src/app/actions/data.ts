@@ -1050,6 +1050,7 @@ export async function createStudentNote(email: string, noteData: any) {
     }
 }
 
+// ... existing deleteStudentNote ...
 export async function deleteStudentNote(email: string, noteId: string) {
     try {
         const client = await clientPromise;
@@ -1066,6 +1067,33 @@ export async function deleteStudentNote(email: string, noteId: string) {
     } catch (e) {
         console.error("Error deleting note:", e);
         return { success: false, error: 'Failed to delete note' };
+    }
+}
+
+export async function updateStudentNote(email: string, noteId: string, noteData: any) {
+    try {
+        const client = await clientPromise;
+        const db = client.db("lumina-database");
+        const user = await db.collection("users").findOne({ email });
+        if (!user) return { success: false, error: 'User not found' };
+
+        const updateFields: any = {
+            updatedAt: new Date()
+        };
+        if (noteData.title) updateFields.title = noteData.title;
+        if (noteData.subject) updateFields.subject = noteData.subject;
+        if (noteData.content !== undefined) updateFields.content = noteData.content;
+        if (noteData.attachments) updateFields.attachments = noteData.attachments;
+
+        const result = await db.collection("notes").updateOne(
+            { _id: new ObjectId(noteId), userId: user._id.toString() },
+            { $set: updateFields }
+        );
+
+        return { success: true, modifiedCount: result.modifiedCount };
+    } catch (e) {
+        console.error("Error updating note:", e);
+        return { success: false, error: 'Failed to update note' };
     }
 }
 

@@ -70,29 +70,70 @@ export default function MyNotesPage() {
         setViewMode('editor');
     };
 
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Debounced Autosave
+    useEffect(() => {
+        const saveTimer = setTimeout(async () => {
+            if (activeNote && formData.title) {
+                // Only autosave if we already have an active note (it was created)
+                // and there are changes. For simplicity we just save if activeNote exists.
+                // Comparing logic omitted for brevity, but this ensures persistence.
+                handleSilentSave();
+            }
+        }, 2000);
+
+        return () => clearTimeout(saveTimer);
+    }, [formData, activeNote]);
+
+    const handleSilentSave = async () => {
+        if (!activeNote || !formData.title.trim()) return;
+        setIsSaving(true);
+        try {
+            await api.updateNote(activeNote.id, formData);
+        } catch (e) {
+            console.error("Autosave failed", e);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const handleSaveNote = async () => {
         if (!formData.title.trim()) {
             alert("Title is required");
             return;
         }
+        setIsSaving(true);
 
         try {
+            let noteId = activeNote?.id;
+
             if (activeNote) {
-                // If editing, we currently treat it as create-new because update API wasn't explicitly confirmed.
-                // However, for better UX in this "Mock" phase or partial phase, let's delete old and create new to simulate update
-                // OR just create a new one. The user said "writing new notes", so the edit flow is secondary.
-                // We'll delete the old one to avoid duplicates if it's an "edit".
-                await api.deleteNote(activeNote.id);
+                await api.updateNote(activeNote.id, formData);
+            } else {
+                const res = await api.createNote(formData);
+                if (res && res.success) {
+                    noteId = res.id;
+                    // Switch to "Edit Mode" for the new note immediately
+                    // We need to construct the note object as if it came from DB
+                    setActiveNote({
+                        id: noteId,
+                        ...formData,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                }
             }
 
-            await api.createNote(formData);
-
-            setViewMode('grid');
-            setActiveNote(null);
+            // Don't switch view mode to grid, stay in editor to allow continued writing
+            // Just refresh list in background
             fetchNotes();
+            // alert("Saved successfully!"); // Optional: Feedback is good, but "Real time" should be subtle.
         } catch (error) {
             console.error("Failed to save note", error);
             alert("Failed to save note. Please try again.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -113,8 +154,8 @@ export default function MyNotesPage() {
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                alert("File is too large. Max size is 2MB.");
+            if (file.size > 5 * 1024 * 1024) { // Increased to 5MB
+                alert("File is too large. Max size is 5MB.");
                 return;
             }
 
@@ -133,11 +174,10 @@ export default function MyNotesPage() {
             };
             reader.readAsDataURL(file);
         }
-        // Reset input
         e.target.value = '';
     };
 
-    const handleHandwritingUpload = (data: any) => {
+    const handleHandwritingUpload = async (data: any) => {
         // Extract digitized text from the upload response
         const digitalText = data.digital_text || '';
         const aiAnalysis = data.ai_analysis || '';
@@ -153,33 +193,68 @@ export default function MyNotesPage() {
 
         // If AI analysis is available, add it as well
         if (aiAnalysis) {
-            newContent += '\n\n--- AI Summary & Improvements ---\n\n' + aiAnalysis;
+            newContent += '\n\n' + aiAnalysis;
         }
 
-        setFormData(prev => ({
-            ...prev,
-            content: newContent
-        }));
-
-        // Optionally save the original handwritten image as attachment
+        // Update Form Data
+        const updatedAttachments = [...formData.attachments];
         if (data.image_path) {
+            // Note: image_path from backend is relative (/uploads/...), we need to ensure it works.
+            // If using local backend and Vercel frontend, we need full URL or proxy.
+            // But typically this path is for the static mount. 
+            // We'll trust the component handled the upload URL, and here we just store the reference
+            // provided by the backend response.
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const fullUrl = data.image_path.startsWith('http') ? data.image_path : `${API_URL}${data.image_path}`;
+
             const newAttachment = {
                 name: 'Handwritten Note',
                 size: 'N/A',
                 type: 'image',
-                url: data.image_path
+                url: fullUrl
             };
-            setFormData(prev => ({
-                ...prev,
-                attachments: [...prev.attachments, newAttachment]
-            }));
+            updatedAttachments.push(newAttachment);
+        }
+
+        const newFormData = {
+            ...formData,
+            content: newContent,
+            attachments: updatedAttachments
+        };
+
+        setFormData(newFormData);
+
+        // REAL TIME SAVE: Immediately save/update
+        setIsSaving(true);
+        try {
+            if (activeNote) {
+                await api.updateNote(activeNote.id, newFormData);
+            } else {
+                // If this was a new note started via upload, create it now
+                // Ensure title exists
+                const titleToUse = newFormData.title || "Digitized Note " + new Date().toLocaleString();
+                const createData = { ...newFormData, title: titleToUse };
+                if (!newFormData.title) setFormData(prev => ({ ...prev, title: titleToUse })); // Update UI title
+
+                const res = await api.createNote(createData);
+                if (res && res.success) {
+                    setActiveNote({
+                        id: res.id,
+                        ...createData,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+            }
+            fetchNotes();
+        } catch (e) {
+            console.error("Failed to auto-save digitized note", e);
+        } finally {
+            setIsSaving(false);
         }
 
         // Close modal
         setShowHandwritingModal(false);
-
-        // Show success notification
-        alert('Handwritten note digitized and added successfully!');
     };
 
     // Derived State
@@ -589,8 +664,8 @@ export default function MyNotesPage() {
                             <p className="text-sm text-gray-400 mb-6">
                                 Upload a photo or PDF of your handwritten notes. We'll extract the text using AI and add it to your note automatically.
                             </p>
-                            <HandwritingUpload 
-                                type="note" 
+                            <HandwritingUpload
+                                type="note"
                                 onUploadComplete={handleHandwritingUpload}
                             />
                         </motion.div>

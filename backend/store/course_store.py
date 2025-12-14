@@ -7,10 +7,19 @@ class CourseStore:
     MongoDB store for Courses.
     """
     def __init__(self):
-        self.db = db.get_db()
-        self.courses_collection = self.db["courses"]
+        self._courses_collection = None
+
+    @property
+    def courses_collection(self):
+        if self._courses_collection is None:
+            _db = db.get_db()
+            if _db is not None:
+                self._courses_collection = _db["courses"]
+        return self._courses_collection
 
     def create_course(self, name: str, code: str, description: str, teacher_id: str) -> dict:
+        collection = self.courses_collection
+        if not collection: raise Exception("Database not connected")
         course = {
             "id": str(uuid.uuid4()),
             "name": name,
@@ -18,12 +27,14 @@ class CourseStore:
             "description": description,
             "teacher_id": teacher_id,
         }
-        self.courses_collection.insert_one(course)
+        collection.insert_one(course)
         course.pop("_id", None)
         return course
 
     def list_courses(self) -> List[dict]:
-        cursor = self.courses_collection.find({})
+        collection = self.courses_collection
+        if not collection: return []
+        cursor = collection.find({})
         courses = []
         for doc in cursor:
             doc.pop("_id", None)
@@ -31,7 +42,9 @@ class CourseStore:
         return courses
 
     def get_course_by_code(self, code: str) -> Optional[dict]:
-        doc = self.courses_collection.find_one({"code": code})
+        collection = self.courses_collection
+        if not collection: return None
+        doc = collection.find_one({"code": code})
         if doc:
             doc.pop("_id", None)
             return doc

@@ -340,6 +340,13 @@ class RealAPI {
         return await deleteStudentNote(user.email, noteId);
     }
 
+    async updateNote(noteId: string, noteData: any): Promise<any> {
+        const user = await this.getCurrentUser();
+        if (!user) return { success: false, error: 'Not authenticated' };
+        const { updateStudentNote } = await import('@/app/actions/data');
+        return await updateStudentNote(user.email, noteId, noteData);
+    }
+
     async chatWithAI(messages: any[]): Promise<any> {
         const { chatWithAI } = await import('@/app/actions/ai');
         return await chatWithAI(messages);
