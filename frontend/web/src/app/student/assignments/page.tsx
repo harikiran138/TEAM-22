@@ -42,18 +42,19 @@ export default function StudentAssignmentsPage() {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("type", "assignment");
-        formData.append("user_id", "student_demo"); // Mock user
-        formData.append("course_id", "demo_course"); // Mock course
+        formData.append("student_id", "student_demo"); // Mock user
         formData.append("assignment_id", assignmentId);
 
         try {
-            const res = await fetch("http://localhost:8000/api/handwriting/upload", {
+            const res = await fetch("http://localhost:8000/api/assignments/submit", {
                 method: "POST",
                 body: formData,
             });
 
             if (res.ok) {
                 alert("Assignment submitted successfully!");
+                // Refresh assignments to show updated status if needed (e.g. increase submission count)
+                fetchAssignments();
             } else {
                 alert("Submission failed.");
             }

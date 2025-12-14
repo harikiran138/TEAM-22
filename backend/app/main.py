@@ -4,6 +4,13 @@ from routers import ai, handwriting_simple as handwriting, assignments
 
 app = FastAPI(title="Lumina Backend API")
 
+from fastapi.staticfiles import StaticFiles
+import os
+
+os.makedirs("data/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
