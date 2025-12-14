@@ -15,7 +15,11 @@ async function getTeacherStats() {
         const data = await getTeacherDashboard('teacher@lumina.com');
 
         // Fetch Assessment Stats from FastAPI Backend
-        let masteryData = { avg_mastery: 0 };
+        interface AssessmentStats {
+            avg_mastery: number;
+            total_students?: number;
+        }
+        let masteryData: AssessmentStats = { avg_mastery: 0 };
         try {
             const res = await fetch('http://127.0.0.1:8000/api/assessment/stats/teacher', { cache: 'no-store' });
             if (res.ok) {

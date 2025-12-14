@@ -17,7 +17,6 @@ import {
     Twitter,
     Linkedin,
     Sparkles,
-    Sparkles,
     Bot,
     Brain // Added Brain icon
 } from 'lucide-react';
