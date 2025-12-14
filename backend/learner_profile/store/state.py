@@ -10,7 +10,9 @@ class StateStore:
             "user_id": user_id, 
             "mastery": {},
             "behavior_label": "neutral",
-            "pathway_state": "exploring"
+            "pathway_state": "exploring",
+            "assignments": [],
+            "notes": []
         })
 
     def update_state(self, user_id: str, new_state: dict):

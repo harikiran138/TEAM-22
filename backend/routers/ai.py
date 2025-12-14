@@ -68,15 +68,31 @@ async def generate_course(request: CourseGenerationRequest):
 @router.post("/tutor/chat")
 async def tutor_chat(request: TutorChatRequest):
     """
-    Chat with the AI Tutor using RAG context.
+    Chat with the AI Tutor using RAG context and Pathway personalization.
     """
     try:
         # 1. Retrieve Context
         relevant_docs = rag_engine.query(request.message)
         context_str = "\n\n".join(relevant_docs)
         
-        # 2. Construct Prompt
-        system_prompt = "You are a helpful AI Tutor. Use the provided Context to answer the user's question. If the answer is not in the context, use your general knowledge but mention that it's outside the course material."
+        # 2. Retrieve Learner State & Pathway Recommendation
+        # Initialize store if not global (or import and use singular instance)
+        from learner_profile.store.state import StateStore
+        store = StateStore()
+        state = store.get_state(request.user_id)
+        
+        behavior = state.get("behavior_label", "neutral")
+        # Get recommendation (pass empty graph for now/default)
+        recommendation = pathway_agent.recommend_next_node(state, {})
+        
+        # 3. Construct Prompt with Personalization
+        system_prompt = (
+            "You are a helpful AI Tutor. Use the provided Context to answer the user's question.\n"
+            f"Adapt your response to the learner's profile:\n"
+            f"- Behavior: {behavior} (If 'frustrated', be encouraging. If 'focused', be concise).\n"
+            f"- Pathway Recommendation: {recommendation} (If 'review', emphasize basics. If 'advance', challenge them).\n"
+            "If the answer is not in the context, use your general knowledge but mention that it's outside the course material."
+        )
         
         user_prompt = f"""
         Context:
@@ -85,9 +101,9 @@ async def tutor_chat(request: TutorChatRequest):
         Question: {request.message}
         """
         
-        # 3. Generate Answer
+        # 4. Generate Answer
         response = llm.generate(user_prompt, system_prompt)
-        return {"response": response, "context_used": relevant_docs}
+        return {"response": response, "context_used": relevant_docs, "personalization": {"behavior": behavior, "recommendation": recommendation}}
         
     except Exception as e:
         print(f"Tutor Error: {e}")
