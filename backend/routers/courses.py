@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, HTTPException, Form, Depends
 from typing import List
 from store.course_store import CourseStore
+from .auth import get_current_user
 
 router = APIRouter()
 store = CourseStore()
@@ -30,13 +31,16 @@ async def create_course(
     name: str = Form(...),
     code: str = Form(...),
     description: str = Form(""),
-    teacher_id: str = Form("teacher1")
+    current_user: dict = Depends(get_current_user)
 ):
+    if current_user["role"] != "teacher":
+        raise HTTPException(status_code=403, detail="Only teachers can create courses")
+        
     try:
         if store.get_course_by_code(code):
             raise HTTPException(status_code=400, detail="Course code already exists")
         
-        course = store.create_course(name, code, description, teacher_id)
+        course = store.create_course(name, code, description, current_user["id"])
         return {"status": "success", "course": course}
     except HTTPException:
         raise

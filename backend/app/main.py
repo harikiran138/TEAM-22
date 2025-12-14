@@ -26,6 +26,9 @@ app.include_router(assignments.router, prefix="/api/assignments", tags=["Assignm
 from routers import courses
 app.include_router(courses.router, prefix="/api/courses", tags=["Courses"])
 
+from routers import auth
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Lumina API"}

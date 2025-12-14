@@ -32,7 +32,8 @@ export default function HandwritingUpload({ type, userId = "guest", assignmentId
         if (assignmentId) formData.append("assignment_id", assignmentId);
 
         try {
-            const response = await fetch("http://127.0.0.1:8000/api/handwriting/upload", {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(`${API_URL}/api/handwriting/upload`, {
                 method: "POST",
                 body: formData,
             });

@@ -16,3 +16,4 @@ torch
 transformers
 aiofiles
 Pillow
+pydantic-settings

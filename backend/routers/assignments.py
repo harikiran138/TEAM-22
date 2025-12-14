@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Depends
 from typing import List, Optional
 from store.assignment_store import AssignmentStore
 from pydantic import BaseModel
 import shutil
 import os
 import uuid
+from .auth import get_current_user
 
 router = APIRouter()
 store = AssignmentStore()
@@ -25,13 +26,16 @@ async def create_assignment(
     course_id: str = Form(...),
     description: str = Form(...),
     due_date: str = Form(...),
-    created_by: str = Form("teacher")
+    current_user: dict = Depends(get_current_user)
 ):
     """
-    Create a new assignment definition.
+    Create a new assignment definition. Requires Teacher role.
     """
+    if current_user["role"] != "teacher":
+        raise HTTPException(status_code=403, detail="Only teachers can create assignments")
+        
     try:
-        assignment = store.create_assignment(title, course_id, description, due_date, created_by)
+        assignment = store.create_assignment(title, course_id, description, due_date, created_by=current_user["id"])
         return {"status": "success", "assignment": assignment}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -39,8 +43,8 @@ async def create_assignment(
 @router.post("/submit")
 async def submit_assignment(
     assignment_id: str = Form(...),
-    student_id: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Submit an assignment.
@@ -55,7 +59,7 @@ async def submit_assignment(
             shutil.copyfileobj(file.file, buffer)
             
         # Create submission record
-        submission = store.submit_assignment(assignment_id, student_id, file_path)
+        submission = store.submit_assignment(assignment_id, current_user["id"], file_path)
         return {"status": "success", "submission": submission}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
