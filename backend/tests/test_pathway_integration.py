@@ -2,20 +2,24 @@ import sys
 import os
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
 
 # Add backend to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# MOCK RAG ENGINE GLOBALLY to avoid ChromaDB init issues
-import sys
-from unittest.mock import MagicMock
-sys.modules["ai_engine.rag"] = MagicMock()
-sys.modules["chromadb"] = MagicMock()
+# MOCK TORCH ONLY to fix import issues, but let others load
+sys.modules["torch"] = MagicMock()
+sys.modules["torch.nn"] = MagicMock()
 
-try:
-    from app.main import app
-except ImportError:
-    from backend.app.main import app
+from app.main import app
+from ai_engine.swarm.pathway import PathwayAgent
+
+# Patch the engine method to return a float instead of a Mock (because torch is mocked)
+@pytest.fixture(autouse=True)
+def mock_inference_output():
+    with patch("ai_engine.pathway.inference_engine.PathwayInferenceEngine.predict_mastery", return_value=0.8):
+        yield
+
 
 
 from ai_engine.swarm.pathway import PathwayAgent
