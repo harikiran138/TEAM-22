@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
-    swcMinify: true,
+
     compress: true,
     poweredByHeader: false,
     // output: 'export', // Disabled for MongoDB dynamic rendering

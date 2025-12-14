@@ -2,10 +2,14 @@ import requests
 import json
 import os
 from typing import Dict, Any, Optional
+from starlette.concurrency import run_in_threadpool
 
 class LLMProvider:
     def generate(self, prompt: str, system_prompt: str = "") -> str:
         raise NotImplementedError
+
+    async def agenerate(self, prompt: str, system_prompt: str = "") -> str:
+        return await run_in_threadpool(self.generate, prompt, system_prompt)
 
 class OllamaProvider(LLMProvider):
     def __init__(self, model: str = "llama3", host: str = "http://localhost:11434"):

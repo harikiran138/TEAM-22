@@ -61,7 +61,7 @@ async def upload_document(
             user_prompt = f"Notes:\n{extracted_text}\n\nTask:\n1. Create a concise summary.\n2. Provide an improved, well-structured version of these notes."
             
             try:
-                ai_response = llm.generate(user_prompt, system_promt)
+                ai_response = await llm.agenerate(user_prompt, system_promt)
                 doc_data["ai_analysis"] = ai_response
             except Exception as e:
                 doc_data["ai_analysis"] = f"AI Analysis failed: {e}"
