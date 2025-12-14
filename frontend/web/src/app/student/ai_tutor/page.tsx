@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
-import { CreateMLCEngine } from "@mlc-ai/web-llm";
+import { processMessage } from '@/lib/ai-tutor/router'; // Integrated Router
+import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm"; // WebLLM
 import {
     Send,
     Bot,
@@ -14,12 +15,16 @@ import {
     Copy,
     Loader2,
     Cpu,
-    Globe
+    Globe,
+    Zap,
+    Cloud,
+    AlertTriangle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-// Using the requested "Lumina" branding, but pointing to a real model
-const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+// Switched to Llama-3.2-1B (Tiny) to prevent "Device Lost" GPU crashes
+// Previous: "Llama-3-8B-Instruct-q4f32_1-MLC" (Too heavy for some GPUs)
+const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
 
 export default function AITutorPage() {
     const [messages, setMessages] = useState<any[]>([]);
@@ -27,12 +32,16 @@ export default function AITutorPage() {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // AI Engine State
-    const [useWebLLM, setUseWebLLM] = useState(true);
-    const engine = useRef<any>(null);
-    const [isEngineReady, setIsEngineReady] = useState(false);
-    const [loadingProgress, setLoadingProgress] = useState('');
-    const [progressPercent, setProgressPercent] = useState(0);
+    // WebLLM State
+    const [engine, setEngine] = useState<MLCEngine | null>(null);
+    const [progress, setProgress] = useState<string>('');
+    const [isModelLoading, setIsModelLoading] = useState(false);
+
+    // AI Provider State
+    // 'lumina' = WebLLM (Lumina Fast/Native)
+    // 'gemini' = Cloud API (Lumina Pro)
+    // 'local' = Python Server (Lumina Edge)
+    const [provider, setProvider] = useState<'lumina' | 'gemini' | 'local'>('lumina');
 
     // Context State
     const [userContext, setUserContext] = useState<string>('');
@@ -41,51 +50,45 @@ export default function AITutorPage() {
     const [currentSessionId, setCurrentSessionId] = useState<string>('');
     const [sessions, setSessions] = useState<Record<string, any[]>>({});
 
-    // Initialize WebLLM Engine
+    // Load Context
     useEffect(() => {
-        const initEngine = async () => {
-            if (engine.current) return;
-
-            try {
-                setLoadingProgress('Initializing Lumina AI (WebLLM)...');
-                engine.current = await CreateMLCEngine(
-                    SELECTED_MODEL,
-                    {
-                        initProgressCallback: (report) => {
-                            setLoadingProgress(report.text);
-                            const match = report.text.match(/(\d+)%/);
-                            if (match) {
-                                setProgressPercent(parseInt(match[1]));
-                            }
-                        },
-                    }
-                );
-                setIsEngineReady(true);
-                setLoadingProgress('');
-            } catch (err) {
-                console.error("Failed to load WebLLM:", err);
-                setLoadingProgress('Failed to load AI. Please check your connection and reload.');
-            }
-        };
-
-        // Always init WebLLM if useWebLLM is true, or pre-load it?
-        // User requested: "webllm shode load immedlty when user open"
-        initEngine();
-
         const loadContext = async () => {
             try {
                 const user = await api.getCurrentUser();
                 const dashboard = await api.getDashboardData('student');
+                const profile = await api.getStudentProfile();
+                const notes = await api.getNotes();
 
                 let context = `Current User: ${user?.name || 'Student'}\n`;
+
+                // Personalization Data
+                if (profile) {
+                    if (profile.bio) context += `Bio: ${profile.bio}\n`;
+                    if (profile.skills && profile.skills.length > 0) context += `Skills: ${profile.skills.join(', ')}\n`;
+                    if (profile.preferences) {
+                        context += `Learning Style: ${profile.preferences.learningStyle || 'Visual'}\n`;
+                        context += `Interests: ${profile.preferences.interests?.join(', ') || 'General'}\n`;
+                    }
+                }
+
                 if (dashboard.enrolledCourses && dashboard.enrolledCourses.length > 0) {
-                    context += "Enrolled Courses:\n";
+                    context += "\nEnrolled Courses:\n";
                     dashboard.enrolledCourses.forEach((c: any) => {
                         context += `- ${c.title} (Progress: ${c.progress}%)\n`;
                     });
                 } else {
-                    context += "No courses enrolled yet.\n";
+                    context += "\nNo courses enrolled yet.\n";
                 }
+
+                // User Database RAG (Notes)
+                if (notes && notes.length > 0) {
+                    context += "\nUser Notes (Knowledge Base):\n";
+                    // Take last 5 notes to avoid token limit overflow (Naive RAG)
+                    notes.slice(0, 5).forEach((n: any) => {
+                        context += `- [${new Date(n.createdAt).toLocaleDateString()}] ${n.content}\n`;
+                    });
+                }
+
 
                 if (dashboard.achievements && dashboard.achievements.length > 0) {
                     context += "Achievements: " + dashboard.achievements.map((a: any) => a.title).join(", ") + "\n";
@@ -151,17 +154,37 @@ export default function AITutorPage() {
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isLoading, loadingProgress]);
+    }, [messages, isLoading]);
+
+    // Initialize WebLLM when 'lumina' mode is selected
+    useEffect(() => {
+        const initWebLLM = async () => {
+            if (provider === 'lumina' && !engine && !isModelLoading) {
+                setIsModelLoading(true);
+                try {
+                    const newEngine = await CreateMLCEngine(
+                        SELECTED_MODEL,
+                        {
+                            initProgressCallback: (report) => setProgress(report.text),
+                            logLevel: "INFO",
+                        }
+                    );
+                    setEngine(newEngine);
+                    setProgress("Ready!");
+                } catch (err) {
+                    console.error("WebLLM Init Error", err);
+                    setProgress("Failed to load model.");
+                } finally {
+                    setIsModelLoading(false);
+                }
+            }
+        };
+        initWebLLM();
+    }, [provider, engine, isModelLoading]);
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!input.trim()) return;
-
-        // If WebLLM mode is active, block until ready. If Local, we can proceed.
-        if (useWebLLM && !isEngineReady) {
-            alert("Lumina AI (WebLLM) is still loading. Please wait or switch to Local Mode.");
-            return;
-        }
 
         const userMsg = { sender: 'me', text: input, timestamp: new Date(), sessionId: currentSessionId };
 
@@ -174,44 +197,51 @@ export default function AITutorPage() {
         api.saveChatMessage({ sender: 'me', text: userMsg.text, sessionId: currentSessionId });
 
         try {
-            let aiText = "";
+            let replyText = "";
+            let source = "api";
 
-            if (useWebLLM) {
-                const systemMessage = `You are Lumina, an AI Tutor for students. Be helpful, concise, and educational.\n\nContext:\n${userContext}`;
-                const contextMessages = [
-                    { role: 'system', content: systemMessage },
-                    ...messages.slice(-10).map(m => ({
-                        role: m.sender === 'me' ? 'user' : 'assistant',
-                        content: m.text
-                    })),
-                    { role: 'user', content: userMsg.text }
-                ];
+            if (provider === 'lumina' && engine) {
+                // Use WebLLM
+                const systemPrompt = `You are Lumina, a helpful AI assistant. 
+User Context:
+${userContext}`;
 
-                const reply = await engine.current.chat.completions.create({
-                    messages: contextMessages
+                const completion = await engine.chat.completions.create({
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        ...messages.map(m => ({
+                            role: (m.sender === 'me' ? 'user' : 'assistant') as "user" | "assistant" | "system",
+                            content: m.text
+                        })),
+                        { role: "user", content: userMsg.text }
+                    ],
+                    temperature: 0.7,
                 });
-                aiText = reply.choices[0].message.content;
+                replyText = completion.choices[0].message.content || "";
+                source = "webllm";
             } else {
-                // Local Backend Mode (RAG)
-                const response = await fetch('/api/tutor/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: userMsg.text,
-                        user_id: 'guest', // In real app, pass actual user ID or JWT
-                    })
-                });
+                // Use Router (Cloud or Local)
+                let query = userMsg.text;
+                if (provider === 'local') query = `[LOCAL] ${query}`;
 
-                if (!response.ok) throw new Error('Backend error');
-                const data = await response.json();
-                aiText = data.response;
+                // Pass userContext to router
+                const result = await processMessage(query, userContext);
+                replyText = result.text;
+                source = result.source;
             }
 
-            const aiMsg = { sender: 'AI Tutor', text: aiText, timestamp: new Date(), sessionId: currentSessionId };
+            const aiMsg = {
+                sender: 'AI Tutor',
+                text: replyText,
+                timestamp: new Date(),
+                sessionId: currentSessionId,
+                source: source
+            };
+
             setMessages(prev => [...prev, aiMsg]);
             updateSessionsState(currentSessionId, aiMsg);
 
-            await api.saveChatMessage({ sender: 'AI Tutor', text: aiText, sessionId: currentSessionId });
+            await api.saveChatMessage({ sender: 'AI Tutor', text: replyText, sessionId: currentSessionId });
             await api.logAIInteraction(userMsg.text, aiMsg.text);
 
         } catch (error) {
@@ -226,6 +256,13 @@ export default function AITutorPage() {
     const addToNotes = async (text: string) => {
         await api.saveNote(text);
         alert("Saved to notes!");
+    };
+
+    // Helper to get display name
+    const getProviderName = (p: string) => {
+        if (p === 'gemini') return 'Lumina Pro';
+        if (p === 'local') return 'Lumina Edge';
+        return 'Lumina Fast';
     };
 
     return (
@@ -278,9 +315,9 @@ export default function AITutorPage() {
                         <div>
                             <h1 className="text-white font-bold">Lumina AI Tutor</h1>
                             <div className="flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full animate-pulse ${isLoading ? 'bg-amber-500' : (useWebLLM ? isEngineReady : true) ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span className={`w-2 h-2 rounded-full animate-pulse ${isLoading ? 'bg-amber-500' : 'bg-green-500'}`}></span>
                                 <span className="text-xs text-gray-400">
-                                    {isLoading ? 'Thinking...' : (useWebLLM ? (isEngineReady ? 'Online (WebLLM)' : 'Loading Model...') : 'Online (Local Backend)')}
+                                    {isLoading ? 'Thinking...' : `Online (${getProviderName(provider)})`}
                                 </span>
                             </div>
                         </div>
@@ -289,48 +326,53 @@ export default function AITutorPage() {
                     {/* Mode Toggle */}
                     <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/10">
                         <button
-                            onClick={() => setUseWebLLM(true)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${useWebLLM
-                                    ? 'bg-lumina-primary text-black shadow-lg'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                            suppressHydrationWarning
+                            onClick={() => setProvider('lumina')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${provider === 'lumina'
+                                ? 'bg-lumina-primary text-black shadow-lg shadow-lumina-primary/20'
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
-                            <Globe className="w-3.5 h-3.5" />
-                            WebLLM
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Lumina Fast
                         </button>
                         <button
-                            onClick={() => setUseWebLLM(false)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${!useWebLLM
-                                    ? 'bg-lumina-primary text-black shadow-lg'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                            suppressHydrationWarning
+                            onClick={() => setProvider('gemini')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${provider === 'gemini'
+                                ? 'bg-blue-500 text-white shadow-lg'
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                }`}
+                        >
+                            <Cloud className="w-3.5 h-3.5" />
+                            Lumina Pro
+                        </button>
+                        <button
+                            suppressHydrationWarning
+                            onClick={() => setProvider('local')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${provider === 'local'
+                                ? 'bg-purple-600 text-white shadow-lg'
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             <Cpu className="w-3.5 h-3.5" />
-                            Local
+                            Lumina Edge
                         </button>
                     </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                    {useWebLLM && !isEngineReady && (
-                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-4 text-center">
-                            <Loader2 className="w-6 h-6 text-blue-400 animate-spin mx-auto mb-2" />
-                            <p className="text-blue-200 font-semibold text-sm mb-1">{loadingProgress || "Initializing..."}</p>
-                            <p className="text-blue-300/60 text-xs">First load will download model data to your browser.</p>
-                            {progressPercent > 0 && (
-                                <div className="mt-2 h-1.5 w-full bg-blue-900/50 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-400 transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {messages.length === 0 && (useWebLLM ? isEngineReady : true) ? (
+                    {messages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-50">
                             <Sparkles className="w-16 h-16 text-lumina-primary mb-4" />
                             <h3 className="text-xl font-bold text-white mb-2">How can I help you learn?</h3>
-                            <p className="text-sm text-gray-400">Current Mode: {useWebLLM ? 'Browser (WebLLM)' : 'Local Server'}</p>
+                            <p className="text-sm text-gray-400">Current Mode: {getProviderName(provider)}</p>
+                            {provider === 'lumina' && (
+                                <p className="text-xs text-lumina-primary mt-2">
+                                    {isModelLoading ? `Initializing Lumina Native AI... ${progress}` : "Lumina Native AI Ready (Instant Replies)"}
+                                </p>
+                            )}
                         </div>
                     ) : (
                         messages.map((msg, idx) => (
@@ -373,20 +415,21 @@ export default function AITutorPage() {
                             suppressHydrationWarning
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={useWebLLM && !isEngineReady ? "Initializing AI..." : "Start a conversation..."}
-                            disabled={useWebLLM && !isEngineReady}
+                            placeholder="Start a conversation..."
                             className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-12 py-3.5 text-white placeholder:text-gray-500 focus:border-lumina-primary focus:bg-white/10 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <button
                             type="submit"
-                            disabled={!input.trim() || isLoading || (useWebLLM && !isEngineReady)}
+                            disabled={!input.trim() || isLoading}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-lumina-primary text-black rounded-lg hover:bg-lumina-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <Send className="w-4 h-4" />
                         </button>
                     </form>
                     <p className="text-center text-[10px] text-gray-500 mt-2">
-                        {useWebLLM ? 'Running Lumina AI directly in your browser (WebLLM).' : 'Running on Local Server (RAG Enabled).'}
+                        {provider === 'lumina' ? 'Running locally in-browser via WebLLM.' :
+                            provider === 'local' ? 'Running on Lumina Edge (Local Server).' :
+                                'Running via Lumina Cloud Intelligence.'}
                     </p>
                 </div>
             </div>

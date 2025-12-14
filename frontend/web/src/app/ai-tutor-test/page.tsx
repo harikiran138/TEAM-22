@@ -66,18 +66,21 @@ export default function AITutorTestPage() {
                             </h1>
                             <div className="flex gap-2 mt-2">
                                 <button
+                                    suppressHydrationWarning
                                     onClick={() => setProvider('lumina')}
                                     className={`px-3 py-1 text-xs rounded-full transition-colors ${provider === 'lumina' ? 'bg-gradient-to-r from-green-400 to-emerald-600 text-white shadow-lg shadow-green-900/20' : 'bg-neutral-700 text-neutral-400 hover:text-neutral-200'}`}
                                 >
                                     ✨ Lumina Algo
                                 </button>
                                 <button
+                                    suppressHydrationWarning
                                     onClick={() => setProvider('gemini')}
                                     className={`px-3 py-1 text-xs rounded-full transition-colors ${provider === 'gemini' ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-400 hover:text-neutral-200'}`}
                                 >
                                     Gemini Cloud
                                 </button>
                                 <button
+                                    suppressHydrationWarning
                                     onClick={() => setProvider('local')}
                                     className={`px-3 py-1 text-xs rounded-full transition-colors ${provider === 'local' ? 'bg-purple-600 text-white' : 'bg-neutral-700 text-neutral-400 hover:text-neutral-200'}`}
                                 >
@@ -85,7 +88,7 @@ export default function AITutorTestPage() {
                                 </button>
                             </div>
                         </div>
-                        <button onClick={handleClear} className="text-xs text-neutral-400 hover:text-white underline">
+                        <button onClick={handleClear} suppressHydrationWarning className="text-xs text-neutral-400 hover:text-white underline">
                             Reset Memory
                         </button>
                     </div>

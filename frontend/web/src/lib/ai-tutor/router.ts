@@ -13,7 +13,7 @@ const checkRules = (question: string): string | null => {
     return null;
 };
 
-export const processMessage = async (question: string): Promise<ChatResponse> => {
+export const processMessage = async (question: string, userContext?: string): Promise<ChatResponse> => {
     // 1. Check local cache (Exact match)
     const cached = await getCachedResponse(question);
     if (cached) {
@@ -32,10 +32,17 @@ export const processMessage = async (question: string): Promise<ChatResponse> =>
         if (question.startsWith('[LOCAL]')) {
             const cleanQuestion = question.replace('[LOCAL]', '').trim();
             try {
+                // Determine if we should send context to local? 
+                // For now, local server might not expect it, but we can append it to message if needed.
+                // Let's keep local simple for now, or append context to message if critical.
+                // Re-reading task: "api replay based on user data".
+                // We will append context to prompt for local as well.
+                const fullMessage = userContext ? `Context:\n${userContext}\n\nQuestion: ${cleanQuestion}` : cleanQuestion;
+
                 const res = await fetch('http://localhost:8000/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: cleanQuestion }),
+                    body: JSON.stringify({ message: fullMessage }),
                 });
                 const data = await res.json();
                 return { text: data.response, source: 'api' };
@@ -48,10 +55,27 @@ export const processMessage = async (question: string): Promise<ChatResponse> =>
         const response = await fetch('/api/ai-tutor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question }),
+            body: JSON.stringify({ question, userContext }), // Pass context
         });
 
-        if (!response.ok) throw new Error('API Error');
+        if (!response.ok) {
+            console.error(`API Fault: Status ${response.status} ${response.statusText}`);
+            const rawText = await response.text();
+            console.error('API Fault: Raw Body:', `"${rawText}"`); // Quote it so we see empty strings
+
+            let errData;
+            try {
+                if (!rawText.trim()) throw new Error("Empty body");
+                errData = JSON.parse(rawText);
+            } catch (jsonErr) {
+                errData = { error: rawText || `HTTP Error ${response.status} (${response.statusText})` };
+            }
+
+            console.error('API Fault: Parsed Data:', errData);
+            // Combine error and details for visibility
+            const combinedError = errData.details ? `${errData.error}: ${errData.details}` : (errData.error || 'Unknown API Error');
+            throw new Error(combinedError);
+        }
 
         const data = await response.json();
 
@@ -59,8 +83,11 @@ export const processMessage = async (question: string): Promise<ChatResponse> =>
         await cacheResponse(question, data.answer);
 
         return { text: data.answer, source: 'api' };
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
-        return { text: "I'm having trouble connecting to my brain right now. Try again?", source: 'rule' };
+        let msg = e.message || "I'm having trouble connecting to my brain right now.";
+        // Sanitize error message for branding
+        msg = msg.replace(/Gemini/gi, 'Lumina Cloud').replace(/Google/gi, 'Lumina Cloud');
+        return { text: `Error: ${msg}`, source: 'rule' };
     }
 };
