@@ -15,10 +15,11 @@ export default function AssessmentPage() {
     const [feedback, setFeedback] = useState<any>(null);
     const [completionReason, setCompletionReason] = useState<string>("");
 
-    // API Base URL - hardcoded for demo, normally passed via env or proxy
-    const API_BASE = "http://localhost:8000/api/assessment";
+    // API Base URL - using env variable
+    const API_BASE = `${process.env.NEXT_PUBLIC_API_BASE}/api/assessment`;
 
     const startAssessment = async () => {
+        console.log("Starting assessment, connecting to:", API_BASE);
         setStatus('loading');
         try {
             const res = await fetch(`${API_BASE}/start`, {
@@ -26,12 +27,19 @@ export default function AssessmentPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ student_id: "demo_student" })
             });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`API Error: ${res.status} ${res.statusText} - ${errorText}`);
+            }
+
             const data = await res.json();
             setSessionId(data.session_id);
             await loadNextQuestion(data.session_id);
         } catch (err) {
-            console.error(err);
-            setStatus('idle');
+            console.error("Assessment start failed:", err);
+            setCompletionReason("Failed to connect to assessment server. Please ensure backend is running.");
+            setStatus('completed'); // Show error state
         }
     };
 
