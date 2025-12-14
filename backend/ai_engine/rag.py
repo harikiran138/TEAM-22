@@ -1,4 +1,9 @@
-import chromadb
+try:
+    import chromadb
+    CHROMADB_AVAILABLE = True
+except ImportError:
+    CHROMADB_AVAILABLE = False
+    chromadb = None
 import uuid
 import torch
 from typing import List, Dict, Any

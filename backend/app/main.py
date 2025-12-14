@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import ai, handwriting, assignments
+from routers import ai, handwriting_simple as handwriting, assignments
 
 app = FastAPI(title="Lumina Backend API")
 

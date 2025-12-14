@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, FileText, Folder, X, Upload, Trash2, Calendar, Eye, Grid, List, ChevronLeft, Save, Paperclip, Clock } from 'lucide-react';
+import { Plus, Search, FileText, Folder, X, Upload, Trash2, Calendar, Eye, Grid, List, ChevronLeft, Save, Paperclip, Clock, PenTool } from 'lucide-react';
 import { api } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
+import HandwritingUpload from '@/components/HandwritingUpload';
 
 export default function MyNotesPage() {
     const [notes, setNotes] = useState<any[]>([]);
@@ -26,6 +27,9 @@ export default function MyNotesPage() {
 
     // Preview File State (for viewing attachments)
     const [previewFile, setPreviewFile] = useState<any>(null);
+
+    // Handwriting Upload Modal State
+    const [showHandwritingModal, setShowHandwritingModal] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -131,6 +135,51 @@ export default function MyNotesPage() {
         }
         // Reset input
         e.target.value = '';
+    };
+
+    const handleHandwritingUpload = (data: any) => {
+        // Extract digitized text from the upload response
+        const digitalText = data.digital_text || '';
+        const aiAnalysis = data.ai_analysis || '';
+
+        // Append digitized text to note content
+        let newContent = formData.content.trim();
+
+        if (newContent) {
+            newContent += '\n\n--- Digitized Handwriting ---\n\n';
+        }
+
+        newContent += digitalText;
+
+        // If AI analysis is available, add it as well
+        if (aiAnalysis) {
+            newContent += '\n\n--- AI Summary & Improvements ---\n\n' + aiAnalysis;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            content: newContent
+        }));
+
+        // Optionally save the original handwritten image as attachment
+        if (data.image_path) {
+            const newAttachment = {
+                name: 'Handwritten Note',
+                size: 'N/A',
+                type: 'image',
+                url: data.image_path
+            };
+            setFormData(prev => ({
+                ...prev,
+                attachments: [...prev.attachments, newAttachment]
+            }));
+        }
+
+        // Close modal
+        setShowHandwritingModal(false);
+
+        // Show success notification
+        alert('Handwritten note digitized and added successfully!');
     };
 
     // Derived State
@@ -331,6 +380,15 @@ export default function MyNotesPage() {
                                         className="hidden"
                                         onChange={handleFileUpload}
                                     />
+                                    <button
+                                        onClick={() => setShowHandwritingModal(true)}
+                                        suppressHydrationWarning
+                                        className="flex items-center gap-2 text-green-400 hover:text-white transition-colors text-sm font-bold bg-green-500/10 hover:bg-white/10 px-3 py-1.5 rounded-lg"
+                                    >
+                                        <PenTool className="w-4 h-4" />
+                                        Upload Handwriting
+                                    </button>
+
 
                                     <div className="flex-1 flex gap-2 overflow-x-auto custom-scrollbar pb-1">
                                         {formData.attachments.map((file, idx) => (
@@ -498,6 +556,47 @@ export default function MyNotesPage() {
                     </>
                 )}
             </div>
+
+            {/* Handwriting Upload Modal */}
+            <AnimatePresence>
+                {showHandwritingModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                        onClick={() => setShowHandwritingModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    <PenTool className="w-6 h-6 text-green-400" />
+                                    Digitize Handwritten Notes
+                                </h2>
+                                <button
+                                    onClick={() => setShowHandwritingModal(false)}
+                                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-gray-400 hover:text-white" />
+                                </button>
+                            </div>
+                            <p className="text-sm text-gray-400 mb-6">
+                                Upload a photo or PDF of your handwritten notes. We'll extract the text using AI and add it to your note automatically.
+                            </p>
+                            <HandwritingUpload 
+                                type="note" 
+                                onUploadComplete={handleHandwritingUpload}
+                            />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

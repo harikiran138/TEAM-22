@@ -1254,9 +1254,17 @@ export async function deleteModule(email: string, courseId: string, moduleId: st
     try {
         const client = await clientPromise;
         const db = client.db("lumina-database");
+        const teacher = await db.collection("users").findOne({ email });
+        if (!teacher) return { success: false, error: 'User not found' };
+
+        // Verify ownership
+        const course = await db.collection("courses").findOne({ _id: new ObjectId(courseId) });
+        if (!course || course.instructorId !== teacher._id.toString()) {
+            return { success: false, error: 'Course not found or access denied' };
+        }
 
         const result = await db.collection("courses").updateOne(
-            { _id: new ObjectId(courseId) }, // Assumption: Caller verifies ownership or we trust the API layer for now. Better to verify.
+            { _id: new ObjectId(courseId) },
             { $pull: { modules: { id: moduleId } } } as any
         );
 
@@ -1271,6 +1279,14 @@ export async function deleteLesson(email: string, courseId: string, moduleId: st
     try {
         const client = await clientPromise;
         const db = client.db("lumina-database");
+        const teacher = await db.collection("users").findOne({ email });
+        if (!teacher) return { success: false, error: 'User not found' };
+
+        // Verify ownership
+        const course = await db.collection("courses").findOne({ _id: new ObjectId(courseId) });
+        if (!course || course.instructorId !== teacher._id.toString()) {
+            return { success: false, error: 'Course not found or access denied' };
+        }
 
         const result = await db.collection("courses").updateOne(
             { _id: new ObjectId(courseId), "modules.id": moduleId },
