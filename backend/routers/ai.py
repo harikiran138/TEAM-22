@@ -103,3 +103,35 @@ async def ingest_content(request: IngestRequest):
         return {"status": "success", "message": "Content ingested successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Pathway Agent Integration ---
+from ai_engine.swarm.pathway import PathwayAgent
+from learner_profile.models.behavior import BehaviorModel
+
+pathway_agent = PathwayAgent()
+behavior_model = BehaviorModel()
+
+class PathwayRequest(BaseModel):
+    learner_state: dict
+    curriculum_graph: dict
+
+class BehaviorRequest(BaseModel):
+    session_data: dict
+
+@router.post("/pathway/recommend")
+async def recommend_pathway(request: PathwayRequest):
+    """
+    Get next node recommendation from Pathway Agent.
+    """
+    recommendation = pathway_agent.recommend_next_node(request.learner_state, request.curriculum_graph)
+    return {"recommendation": recommendation}
+
+@router.post("/profile/behavior")
+async def classify_behavior(request: BehaviorRequest):
+    """
+    Classify learner behavior.
+    """
+    label = behavior_model.classify_behavior(request.session_data)
+    score = behavior_model.calculate_engagement_score(request.session_data)
+    return {"behavior": label, "engagement_score": score}
+
