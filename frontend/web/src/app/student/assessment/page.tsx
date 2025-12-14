@@ -18,7 +18,7 @@ export default function AssessmentPage() {
     // API Base URL - fallback to 8001 if env not set
     const API_BASE = process.env.NEXT_PUBLIC_API_BASE
         ? `${process.env.NEXT_PUBLIC_API_BASE}/api/assessment`
-        : 'http://localhost:8001/api/assessment';
+        : 'http://localhost:8000/api/assessment';
 
     const startAssessment = async () => {
         console.log("Starting assessment, connecting to:", API_BASE);
