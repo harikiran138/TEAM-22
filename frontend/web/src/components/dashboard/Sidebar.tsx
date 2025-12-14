@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, MessageSquare, BarChart2, User, Settings, LogOut, Bot, FileText, X } from 'lucide-react';
+import { LayoutDashboard, BookOpen, MessageSquare, BarChart2, User, Settings, LogOut, Bot, FileText, X, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 
@@ -11,6 +11,7 @@ const navItems = [
     { name: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
     { name: 'Assignments', href: '/student/assignments', icon: FileText },
     { name: 'AI Tutor', href: '/student/ai_tutor', icon: Bot },
+    { name: 'Assessment', href: '/student/assessment', icon: Brain },
     { name: 'My Courses', href: '/student/courses', icon: BookOpen },
     { name: 'My Notes', href: '/student/my_notes', icon: FileText },
     { name: 'Community', href: '/student/community', icon: MessageSquare },

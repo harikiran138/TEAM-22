@@ -2,7 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import ai, handwriting_simple as handwriting, assignments
 
-app = FastAPI(title="Lumina Backend API")
+from app.database.manager import db
+from core.config import settings
+
+app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
+
+@app.on_event("startup")
+async def startup_db_client():
+    await db.connect()
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    await db.close()
 
 from fastapi.staticfiles import StaticFiles
 import os
@@ -28,6 +39,9 @@ app.include_router(courses.router, prefix="/api/courses", tags=["Courses"])
 
 from routers import auth
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+
+from assessment.api import assessment_routes
+app.include_router(assessment_routes.router, prefix="/api/assessment", tags=["Assessment"])
 
 @app.get("/")
 def read_root():

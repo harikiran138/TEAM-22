@@ -10,24 +10,35 @@ export const metadata: Metadata = {
 
 async function getTeacherStats() {
     try {
-        // Use Firebase-backed Server Action
+        // Use Firebase-backed Server Action for general data
         const { getTeacherDashboard } = await import('@/app/actions/data');
-        const data = await getTeacherDashboard('teacher@lumina.com'); // Could pass dynamic email if available
+        const data = await getTeacherDashboard('teacher@lumina.com');
+
+        // Fetch Assessment Stats from FastAPI Backend
+        let masteryData = { avg_mastery: 0 };
+        try {
+            const res = await fetch('http://127.0.0.1:8000/api/assessment/stats/teacher', { cache: 'no-store' });
+            if (res.ok) {
+                masteryData = await res.json();
+            }
+        } catch (err) {
+            console.error("Failed to fetch assessment stats", err);
+        }
 
         if (!data) {
             return {
-                totalStudents: 0,
+                totalStudents: masteryData.total_students || 0,
                 activeCourses: 0,
-                avgMastery: 0,
+                avgMastery: Math.round(masteryData.avg_mastery || 0),
                 pendingGrading: 0
             };
         }
 
         return {
-            totalStudents: data.totalStudents || 0,
+            totalStudents: data.totalStudents || masteryData.total_students || 0,
             activeCourses: data.activeCourses || 0,
-            avgMastery: data.avgRating ? Math.round(data.avgRating * 20) : 87, // Convert 5-star to percentage
-            pendingGrading: 5 // This would come from assignments collection
+            avgMastery: Math.round(masteryData.avg_mastery || (data.avgRating ? data.avgRating * 20 : 0)),
+            pendingGrading: 5
         };
     } catch (e) {
         console.error("Failed to fetch stats", e);
@@ -169,7 +180,7 @@ export default async function TeacherDashboard() {
 
 async function getAssignments() {
     try {
-        const res = await fetch('http://localhost:8000/api/assignments/list', { cache: 'no-store' });
+        const res = await fetch('http://127.0.0.1:8000/api/assignments/list', { cache: 'no-store' });
         if (!res.ok) return [];
         return await res.json();
     } catch (e) {

@@ -64,7 +64,7 @@ async def submit_assignment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from services.ocr_service import ocr_service
+from app.services.ocr_service import ocr_service
 from services.grader_service import grader_service
 
 # ... (existing imports)
@@ -95,11 +95,16 @@ async def grade_submission(assignment_id: str, submission_id: str):
     full_path = os.path.abspath(file_path)
     
     print(f"Processing OCR for: {full_path}")
-    extracted_text = ocr_service.extract_text(full_path)
+    
+    # Use asyncio.to_thread to run optimized OCR without blocking
+    import asyncio
+    # Note: digitize_image expects raw bytes or path, here passing path
+    extracted_text = await asyncio.to_thread(ocr_service.digitize_image, full_path)
     
     # 4. Grade
     print(f"Grading submission against description...")
-    result = grader_service.grade_submission(extracted_text, description)
+    # Use asyncio.to_thread for grading as well
+    result = await asyncio.to_thread(grader_service.grade_submission, extracted_text, description)
     
     # Add OCR text to result for reference
     result["ocr_text"] = extracted_text

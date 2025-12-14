@@ -41,7 +41,9 @@ async def upload_document(
         
         # Determine file type and process
         if ext.lower() in ['jpg', 'jpeg', 'png', 'bmp', 'webp']:
-            extracted_text = ocr_service.digitize_image(content)
+            # Run OCR in a separate thread to avoid blocking the event loop
+            import asyncio
+            extracted_text = await asyncio.to_thread(ocr_service.digitize_image, content)
         elif ext.lower() == 'pdf':
              # Placeholder for PDF logic: 
              # For now, we will treat it as a warning since basic implementation handles images.

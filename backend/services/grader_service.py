@@ -3,7 +3,17 @@ import torch
 
 class GraderService:
     def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Detect device: MPS for Mac, CUDA for Nvidia, CPU fallback
+        if torch.backends.mps.is_available():
+            self.device = "mps"
+            print("🚀 Grader Service: Using Apple MPS (Metal Performance Shaders) acceleration")
+        elif torch.cuda.is_available():
+            self.device = "cuda"
+            print("🚀 Grader Service: Using CUDA acceleration")
+        else:
+            self.device = "cpu"
+            print("⚠️ Grader Service: Using CPU for inference (slower)")
+            
         self.model = None
 
     def _load_model(self):

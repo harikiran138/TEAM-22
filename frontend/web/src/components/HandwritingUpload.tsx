@@ -80,7 +80,7 @@ export default function HandwritingUpload({ type, userId = "guest", assignmentId
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                    {loading ? "Digitizing..." : "Convert & Upload"}
+                    {loading ? "Digitizing (~30s)..." : "Convert & Upload"}
                 </button>
 
                 {result && (

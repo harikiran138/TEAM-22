@@ -17,7 +17,9 @@ import {
     Twitter,
     Linkedin,
     Sparkles,
-    Bot // Added Bot icon for AI Tutor
+    Sparkles,
+    Bot,
+    Brain // Added Brain icon
 } from 'lucide-react';
 
 export default function StudentProfile() {
@@ -35,19 +37,22 @@ export default function StudentProfile() {
     const [certificates, setCertificates] = useState<any[]>([]);
     const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
     const [badges, setBadges] = useState<any[]>([]);
+    const [mastery, setMastery] = useState<any>({});
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [profileData, certificatesData, badgesData] = await Promise.all([
+                const [profileData, certificatesData, badgesData, masteryData] = await Promise.all([
                     api.getStudentProfile(),
                     api.getStudentCertificates(),
-                    api.getStudentBadges()
+                    api.getStudentBadges(),
+                    api.getStudentMastery()
                 ]);
 
                 setProfile(profileData);
                 setCertificates(certificatesData);
                 setBadges(badgesData);
+                setMastery(masteryData);
 
                 if (profileData) {
                     setEditForm({
@@ -161,6 +166,38 @@ export default function StudentProfile() {
                                 <Sparkles className="w-4 h-4 mr-2" />
                                 Open AI Tutor
                             </a>
+                        </div>
+
+                        {/* Adaptive Mastery Card */}
+                        <div className="glass-card p-6 relative overflow-hidden group backdrop-blur-md bg-black/40 border-white/10 mt-6">
+                            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4 flex items-center">
+                                <Brain className="w-4 h-4 mr-2 text-pink-500" />
+                                Knowledge Mastery
+                            </h3>
+
+                            {Object.keys(mastery).length > 0 ? (
+                                <div className="space-y-4">
+                                    {Object.entries(mastery).map(([concept, score]: [string, any]) => (
+                                        <div key={concept}>
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span className="text-gray-300 capitalize">{concept}</span>
+                                                <span className="text-pink-400 font-mono">{(score * 100).toFixed(0)}%</span>
+                                            </div>
+                                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-1000"
+                                                    style={{ width: `${score * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-gray-500">No assessment data yet.</p>
+                            )}
+                            <p className="text-xs text-gray-400 mt-4">
+                                Based on BKT Analysis
+                            </p>
                         </div>
                     </div>
 

@@ -1,11 +1,201 @@
 'use client';
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Loader2, CheckCircle2, XCircle, Brain, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AssessmentPage() {
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [status, setStatus] = useState<'idle' | 'loading' | 'question' | 'feedback' | 'completed'>('idle');
+    const [question, setQuestion] = useState<any>(null);
+    const [selectedAnswer, setSelectedAnswer] = useState<string>("");
+    const [feedback, setFeedback] = useState<any>(null);
+    const [completionReason, setCompletionReason] = useState<string>("");
+
+    // API Base URL - hardcoded for demo, normally passed via env or proxy
+    const API_BASE = "http://localhost:8000/api/assessment";
+
+    const startAssessment = async () => {
+        setStatus('loading');
+        try {
+            const res = await fetch(`${API_BASE}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: "demo_student" })
+            });
+            const data = await res.json();
+            setSessionId(data.session_id);
+            await loadNextQuestion(data.session_id);
+        } catch (err) {
+            console.error(err);
+            setStatus('idle');
+        }
+    };
+
+    const loadNextQuestion = async (sid: string) => {
+        setStatus('loading');
+        try {
+            const res = await fetch(`${API_BASE}/${sid}/next-question`);
+            const data = await res.json();
+
+            if (data.status === 'completed') {
+                setCompletionReason(data.reason);
+                setStatus('completed');
+                return;
+            }
+
+            setQuestion(data.question);
+            setSelectedAnswer("");
+            setFeedback(null);
+            setStatus('question');
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const submitAnswer = async () => {
+        if (!sessionId || !selectedAnswer) return;
+        setStatus('loading');
+        try {
+            const res = await fetch(`${API_BASE}/${sessionId}/submit-answer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    selected_answer: selectedAnswer,
+                    time_taken: 5.0 // mocked
+                })
+            });
+            const data = await res.json();
+            setFeedback(data);
+            setStatus('feedback');
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-black text-white p-8">
-            <h1 className="text-3xl font-bold mb-4 text-lumina-primary">Assessments</h1>
-            <p className="text-gray-400">This is a placeholder for the Assessments page.</p>
-            <a href="/student/dashboard" className="mt-4 inline-block text-lumina-secondary hover:underline">Back to Dashboard</a>
+        <div className="min-h-screen bg-black text-white p-8 pl-80"> {/* Padding left for Sidebar */}
+            <div className="max-w-3xl mx-auto space-y-8">
+                <header>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent mb-2">
+                        Adaptive Assessment
+                    </h1>
+                    <p className="text-gray-400">AI-powered personalized testing engine</p>
+                </header>
+
+                <AnimatePresence mode="wait">
+                    {status === 'idle' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
+                                <CardHeader>
+                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mb-4">
+                                        <Brain className="w-8 h-8 text-purple-400" />
+                                    </div>
+                                    <CardTitle className="text-2xl text-white">Ready for your assessment?</CardTitle>
+                                </CardHeader>
+                                <CardContent className="text-gray-400">
+                                    <p>This intelligent assessment will adapt to your skill level in real-time.</p>
+                                    <ul className="list-disc list-inside mt-4 space-y-2">
+                                        <li>Questions get harder if you answer correctly</li>
+                                        <li>We'll identify gaps if you struggle</li>
+                                        <li>Mastery is tracked per concept</li>
+                                    </ul>
+                                </CardContent>
+                                <CardFooter>
+                                    <Button onClick={startAssessment} className="bg-white text-black hover:bg-gray-200">
+                                        Start Assessment <ArrowRight className="ml-2 w-4 h-4" />
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        </motion.div>
+                    )}
+
+                    {status === 'loading' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center py-20">
+                            <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+                        </motion.div>
+                    )}
+
+                    {(status === 'question' && question) && (
+                        <motion.div key="question" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }}>
+                            <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
+                                <CardHeader>
+                                    <div className="flex justify-between items-center text-sm text-gray-400 mb-2">
+                                        <span>Question ID: {question.id}</span>
+                                        <span className="px-2 py-1 rounded bg-white/10">{question.format}</span>
+                                    </div>
+                                    <CardTitle className="text-xl text-white leading-relaxed">{question.content}</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer} className="space-y-4">
+                                        {question.options.map((opt: string, i: number) => (
+                                            <div key={i} className="flex items-center space-x-2 p-3 rounded-lg border border-white/5 hover:bg-white/5 transition-colors cursor-pointer">
+                                                <RadioGroupItem value={opt} id={`opt-${i}`} className="border-white/20 text-purple-500" />
+                                                <Label htmlFor={`opt-${i}`} className="text-gray-300 font-normal cursor-pointer flex-1">{opt}</Label>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                </CardContent>
+                                <CardFooter className="flex justify-end pt-4">
+                                    <Button onClick={submitAnswer} disabled={!selectedAnswer} className="bg-purple-600 hover:bg-purple-700">
+                                        Submit Answer
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        </motion.div>
+                    )}
+
+                    {(status === 'feedback' && feedback) && (
+                        <motion.div key="feedback" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                            <Card className={`border backdrop-blur-xl ${feedback.is_correct ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                                <CardHeader>
+                                    <div className="flex items-center gap-3">
+                                        {feedback.is_correct ?
+                                            <CheckCircle2 className="w-8 h-8 text-green-400" /> :
+                                            <XCircle className="w-8 h-8 text-red-400" />
+                                        }
+                                        <CardTitle className="text-white">
+                                            {feedback.is_correct ? "Excellent!" : "Not quite right"}
+                                        </CardTitle>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="bg-black/20 p-4 rounded-lg">
+                                        <p className="text-yellow-400 text-sm font-semibold mb-1">Explanation</p>
+                                        <p className="text-gray-300">{feedback.explanation}</p>
+                                    </div>
+                                    <div className="text-xs text-gray-500 font-mono">
+                                        Mastery Update: {JSON.stringify(feedback.mastery_update)}
+                                    </div>
+                                </CardContent>
+                                <CardFooter>
+                                    <Button onClick={() => loadNextQuestion(sessionId!)} className="w-full bg-white text-black hover:bg-gray-200">
+                                        Next Question <ArrowRight className="ml-2 w-4 h-4" />
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        </motion.div>
+                    )}
+
+                    {status === 'completed' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
+                            <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-full mx-auto flex items-center justify-center mb-6 shadow-glow">
+                                <Brain className="w-12 h-12 text-white" />
+                            </div>
+                            <h2 className="text-3xl font-bold text-white mb-2">Assessment Completed</h2>
+                            <p className="text-gray-400 max-w-md mx-auto mb-8">
+                                Reason: {completionReason}
+                            </p>
+                            <Button onClick={() => setStatus('idle')} variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                                Return to Dashboard
+                            </Button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
         </div>
     );
 }

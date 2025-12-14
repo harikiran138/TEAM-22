@@ -151,6 +151,19 @@ class RealAPI {
         return await getStudentBadges(user.email);
     }
 
+    async getStudentMastery(): Promise<any> {
+        const user = await this.getCurrentUser();
+        if (!user) return {};
+        // Direct fetch to FastAPI backend for assessment data
+        try {
+            const res = await fetch(`http://localhost:8000/api/assessment/student/${user.id || user.email}/mastery`);
+            return await res.json();
+        } catch (err) {
+            console.error("Failed to fetch mastery", err);
+            return {};
+        }
+    }
+
     async getCourseDetails(courseId: string): Promise<any> {
         const { getCourseDetails } = await import('@/app/actions/data');
         return await getCourseDetails(courseId);
