@@ -1,1 +1,0 @@
-# MCP Protocol Definition
