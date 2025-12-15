@@ -1,3 +1,0 @@
-"""
-Lumina Backend Application Module.
-"""
