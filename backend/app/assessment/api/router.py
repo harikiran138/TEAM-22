@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from backend.app.assessment.models.schemas import (
+from app.assessment.models.schemas import (
     QuestionRequest, 
     Question, 
     AssessmentSession, 
@@ -7,7 +7,7 @@ from backend.app.assessment.models.schemas import (
     StartAssessmentRequest,
     AssessmentResult
 )
-from backend.app.assessment.engine.session_manager import session_manager
+from app.assessment.engine.session_manager import session_manager
 from typing import Optional
 
 router = APIRouter()

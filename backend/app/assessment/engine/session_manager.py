@@ -1,8 +1,7 @@
-from typing import Optional
-from backend.app.assessment.models.schemas import AssessmentSession, StudentResponse, Question, AssessmentResult
-from backend.app.assessment.llm.ollama_generator import ollama_generator as question_generator
-from backend.app.assessment.engine.adaptive_logic import adaptive_logic
-from backend.store.database import db
+from app.assessment.models.schemas import AssessmentSession, StudentResponse, Question, AssessmentResult
+from app.assessment.llm.ollama_generator import ollama_generator as question_generator
+from app.assessment.engine.adaptive_logic import adaptive_logic
+from store.database import db
 from datetime import datetime
 import logging
 

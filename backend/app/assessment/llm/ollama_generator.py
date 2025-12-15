@@ -3,7 +3,7 @@ import requests
 import json
 import random
 from typing import Optional
-from backend.app.assessment.models.schemas import Question, Option
+from app.assessment.models.schemas import Question, Option
 import uuid
 
 # Configure logging
